@@ -1,0 +1,76 @@
+From 350e4ec1da7cb4fe67ccb6d54b98cfead031c500 Mon Sep 17 00:00:00 2001
+From: Maximilian Weigand <mweigand@mweigand.net>
+Date: Sat, 11 Jun 2022 21:08:19 +0200
+Subject: [PATCH 21/21] [rockchip_ebc] The current driver iteration does not
+ guarantee consistency between the list of currently-worked on damaged areas
+ (snapshot of ctx->queue taken at the beginning of each frame) and the
+ framebuffer content (ctx->final). As such it is possible that the content of
+ the framebuffer changes before a given area can be drawn, potentially leading
+ to garbled screen content. This effects is hugely dependent on the nature of
+ drawing calls emitted by individual applications. Large scheduled areas tend
+ to be good, but if an application sends large bursts of
+ overlapping/overwriting areas then bad things happen. The bug/effect is also
+ triggered if area splitting is done to increase drawing performance.
+
+For example, this can be nicely seen under Gnome when
+chaotically moving the nautilus window.
+
+This patch is not a fix but somewhat reduces the impact by moving the
+splinlock guarding the ctx->queue so it guards both the whole
+frame-prepartion phase of the partial refresh function and the
+framebuffer blitting function.
+
+An alternative that also greatly reduces the effect is to copy the whole
+framebuffer before preparing a given frame. However, this has a huge
+performance impact and thus is not feasible if we still want to to
+real-time drawings.
+---
+ drivers/gpu/drm/rockchip/rockchip_ebc.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/rockchip/rockchip_ebc.c b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+index 973d13ffd0d3..3ef899c4779f 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_ebc.c
++++ b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+@@ -744,7 +744,6 @@ static void rockchip_ebc_partial_refresh(struct rockchip_ebc *ebc,
+ 		/* Move the queued damage areas to the local list. */
+ 		spin_lock(&ctx->queue_lock);
+ 		list_splice_tail_init(&ctx->queue, &areas);
+-		spin_unlock(&ctx->queue_lock);
+ 
+ 		list_for_each_entry_safe(area, next_area, &areas, list) {
+ 			s32 frame_delta;
+@@ -832,6 +831,8 @@ static void rockchip_ebc_partial_refresh(struct rockchip_ebc *ebc,
+ 		dma_sync_single_for_device(dev, phase_handle,
+ 					   ctx->phase_size, DMA_TO_DEVICE);
+ 
++		spin_unlock(&ctx->queue_lock);
++
+ 		/* if (frame) { */
+ 		/* 	if (!wait_for_completion_timeout(&ebc->display_end, */
+ 		/* 					 EBC_FRAME_TIMEOUT)) */
+@@ -1448,6 +1449,7 @@ static void rockchip_ebc_plane_atomic_update(struct drm_plane *plane,
+ 	ebc_plane_state = to_ebc_plane_state(plane_state);
+ 	vaddr = ebc_plane_state->base.data[0].vaddr;
+ 
++	spin_lock(&ctx->queue_lock);
+ 	list_for_each_entry_safe(area, next_area, &ebc_plane_state->areas, list) {
+ 		struct drm_rect *dst_clip = &area->clip;
+ 		struct drm_rect src_clip = area->clip;
+@@ -1493,10 +1495,11 @@ static void rockchip_ebc_plane_atomic_update(struct drm_plane *plane,
+ 		}
+ 	}
+ 
+-	if (list_empty(&ebc_plane_state->areas))
++	if (list_empty(&ebc_plane_state->areas)){
++		spin_unlock(&ctx->queue_lock);
+ 		return;
++	}
+ 
+-	spin_lock(&ctx->queue_lock);
+ 	list_splice_tail_init(&ebc_plane_state->areas, &ctx->queue);
+ 	spin_unlock(&ctx->queue_lock);
+ 
+-- 
+2.30.2
+

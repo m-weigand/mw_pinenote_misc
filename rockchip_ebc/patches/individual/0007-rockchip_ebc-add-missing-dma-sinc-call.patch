@@ -1,0 +1,24 @@
+From 28a024ea077105a567f8151f182f9e29c19027e5 Mon Sep 17 00:00:00 2001
+From: Maximilian Weigand <mweigand@mweigand.net>
+Date: Fri, 3 Jun 2022 21:16:37 +0200
+Subject: [PATCH 07/21] [rockchip_ebc] add missing dma sinc call
+
+---
+ drivers/gpu/drm/rockchip/rockchip_ebc.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/rockchip/rockchip_ebc.c b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+index 87deb8098d2d..0681504fc8d7 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_ebc.c
++++ b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+@@ -317,6 +317,7 @@ static void rockchip_ebc_global_refresh(struct rockchip_ebc *ebc,
+ 	u32 gray4_size = ctx->gray4_size;
+ 	struct device *dev = drm->dev;
+ 
++	dma_sync_single_for_device(dev, next_handle,
+ 				   gray4_size, DMA_TO_DEVICE);
+ 	dma_sync_single_for_device(dev, prev_handle,
+ 				   gray4_size, DMA_TO_DEVICE);
+-- 
+2.30.2
+

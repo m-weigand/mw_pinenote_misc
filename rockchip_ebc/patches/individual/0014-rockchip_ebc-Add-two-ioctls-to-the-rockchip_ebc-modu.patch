@@ -1,0 +1,134 @@
+From eef2a823bf96f492a4d28fe0f90ea91a3c1bb936 Mon Sep 17 00:00:00 2001
+From: Maximilian Weigand <mweigand@mweigand.net>
+Date: Sat, 4 Jun 2022 20:02:26 +0200
+Subject: [PATCH 14/21] [rockchip_ebc] Add two ioctls to the rockchip_ebc
+ module:
+
+DRM_IOCTL_ROCKCHIP_EBC_GLOBAL_REFRESH triggers a global fresh
+
+DRM_IOCTL_ROCKCHIP_EBC_OFF_SCREEN can be used to supply off-screen
+content that is display on shutdown/module-unload.
+
+Corresponding ioctl structures:
+
+struct drm_rockchip_ebc_trigger_global_refresh {
+       bool trigger_global_refresh;
+};
+
+struct drm_rockchip_ebc_off_screen {
+       __u64 info1; // <- not used
+       char * ptr_screen_content;
+};
+---
+ drivers/gpu/drm/rockchip/rockchip_ebc.c | 41 +++++++++++++++++++++++++
+ include/uapi/drm/rockchip_ebc_drm.h     | 25 +++++++++++++++
+ 2 files changed, 66 insertions(+)
+ create mode 100644 include/uapi/drm/rockchip_ebc_drm.h
+
+diff --git a/drivers/gpu/drm/rockchip/rockchip_ebc.c b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+index 69ef34e86ba7..9a0a238829bb 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_ebc.c
++++ b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+@@ -15,6 +15,7 @@
+ #include <linux/regulator/consumer.h>
+ #include <linux/sched.h>
+ #include <linux/dma-mapping.h>
++#include <linux/uaccess.h>
+ #include <linux/firmware.h>
+ 
+ #include <drm/drm_atomic.h>
+@@ -29,6 +30,7 @@
+ #include <drm/drm_gem_shmem_helper.h>
+ #include <drm/drm_plane_helper.h>
+ #include <drm/drm_simple_kms_helper.h>
++#include <drm/rockchip_ebc_drm.h>
+ 
+ #define EBC_DSP_START			0x0000
+ #define EBC_DSP_START_DSP_OUT_LOW		BIT(31)
+@@ -193,6 +195,43 @@ MODULE_PARM_DESC(refresh_threshold, "refresh threshold in screen area multiples"
+ 
+ DEFINE_DRM_GEM_FOPS(rockchip_ebc_fops);
+ 
++static int ioctl_trigger_global_refresh(struct drm_device *dev, void *data,
++		struct drm_file *file_priv)
++{
++	struct drm_rockchip_ebc_trigger_global_refresh *args = data;
++	struct rockchip_ebc *ebc = dev_get_drvdata(dev->dev);
++
++	if (args->trigger_global_refresh){
++		printk(KERN_INFO "rockchip_ebc: ioctl would trigger full refresh \n");
++		spin_lock(&ebc->refresh_once_lock);
++		ebc->do_one_full_refresh = true;
++		spin_unlock(&ebc->refresh_once_lock);
++		// try to trigger the refresh immediately
++		wake_up_process(ebc->refresh_thread);
++	}
++
++	return 0;
++}
++
++static int ioctl_set_off_screen(struct drm_device *dev, void *data,
++		struct drm_file *file_priv)
++{
++	struct drm_rockchip_ebc_off_screen *args = data;
++	struct rockchip_ebc *ebc = dev_get_drvdata(dev->dev);
++	int copy_result;
++
++	copy_result = copy_from_user(&ebc->off_screen, args->ptr_screen_content, 1313144);
++
++	return 0;
++}
++
++static const struct drm_ioctl_desc ioctls[DRM_COMMAND_END - DRM_COMMAND_BASE] = {
++	DRM_IOCTL_DEF_DRV(ROCKCHIP_EBC_GLOBAL_REFRESH, ioctl_trigger_global_refresh,
++			  DRM_RENDER_ALLOW),
++	DRM_IOCTL_DEF_DRV(ROCKCHIP_EBC_OFF_SCREEN, ioctl_set_off_screen,
++			  DRM_RENDER_ALLOW),
++};
++
+ static const struct drm_driver rockchip_ebc_drm_driver = {
+ 	.lastclose		= drm_fb_helper_lastclose,
+ 	DRM_GEM_SHMEM_DRIVER_OPS,
+@@ -203,6 +242,8 @@ static const struct drm_driver rockchip_ebc_drm_driver = {
+ 	.date			= "20220303",
+ 	.driver_features	= DRIVER_ATOMIC | DRIVER_GEM | DRIVER_MODESET,
+ 	.fops			= &rockchip_ebc_fops,
++	.ioctls = ioctls,
++	.num_ioctls = DRM_ROCKCHIP_EBC_NUM_IOCTLS,
+ };
+ 
+ static const struct drm_mode_config_funcs rockchip_ebc_mode_config_funcs = {
+diff --git a/include/uapi/drm/rockchip_ebc_drm.h b/include/uapi/drm/rockchip_ebc_drm.h
+new file mode 100644
+index 000000000000..befa62a68be0
+--- /dev/null
++++ b/include/uapi/drm/rockchip_ebc_drm.h
+@@ -0,0 +1,25 @@
++#ifndef __ROCKCHIP_EBC_DRM_H__
++#define __ROCKCHIP_EBC_DRM_H__
++
++#include "drm.h"
++
++#if defined(__cplusplus)
++extern "C" {
++#endif
++
++
++struct drm_rockchip_ebc_trigger_global_refresh {
++	bool trigger_global_refresh;
++};
++
++struct drm_rockchip_ebc_off_screen {
++	__u64 info1;
++	char * ptr_screen_content;
++};
++
++#define DRM_ROCKCHIP_EBC_NUM_IOCTLS		0x02
++
++#define DRM_IOCTL_ROCKCHIP_EBC_GLOBAL_REFRESH	DRM_IOWR(DRM_COMMAND_BASE + 0x00, struct drm_rockchip_ebc_trigger_global_refresh)
++#define DRM_IOCTL_ROCKCHIP_EBC_OFF_SCREEN	DRM_IOWR(DRM_COMMAND_BASE + 0x01, struct drm_rockchip_ebc_off_screen)
++
++#endif /* __ROCKCHIP_EBC_DRM_H__*/
+-- 
+2.30.2
+

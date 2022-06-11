@@ -1,0 +1,80 @@
+From 2b62b6c5853200cf1f1f63010d8edb56a8a08ceb Mon Sep 17 00:00:00 2001
+From: Maximilian Weigand <mweigand@mweigand.net>
+Date: Sat, 4 Jun 2022 19:46:46 +0200
+Subject: [PATCH 12/21] [rockchip_ebc] add possibility to change the
+ off-screen, i.e. the content of the screen when the module is unloaded. The
+ content is read on module-load time from the firmware file
+ rockchip/rockchip_ebc_default_screen.bin. The file must be of size 1314144
+ bytes containing the 4 bit gray values for each pixel
+
+---
+ drivers/gpu/drm/rockchip/rockchip_ebc.c | 25 ++++++++++++++++++++++++-
+ 1 file changed, 24 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/rockchip/rockchip_ebc.c b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+index b1c8f967350b..edf98b048a07 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_ebc.c
++++ b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+@@ -15,6 +15,7 @@
+ #include <linux/regulator/consumer.h>
+ #include <linux/sched.h>
+ #include <linux/dma-mapping.h>
++#include <linux/firmware.h>
+ 
+ #include <drm/drm_atomic.h>
+ #include <drm/drm_atomic_helper.h>
+@@ -154,6 +155,9 @@ struct rockchip_ebc {
+ 	u32				dsp_start;
+ 	bool				lut_changed;
+ 	bool				reset_complete;
++	// one screen content: 1872 * 1404 / 2
++	// the array size should probably be set dynamically...
++	char off_screen[1314144];
+ 	spinlock_t			refresh_once_lock;
+ 	// should this go into the ctx?
+ 	bool do_one_full_refresh;
+@@ -818,7 +822,7 @@ static int rockchip_ebc_refresh_thread(void *data)
+ 		 * Clear the display before disabling the CRTC. Use the
+ 		 * highest-quality waveform to minimize visible artifacts.
+ 		 */
+-		memset(ctx->next, 0xff, ctx->gray4_size);
++		memcpy(ctx->final, ebc->off_screen, ctx->gray4_size);
+ 		rockchip_ebc_refresh(ebc, ctx, true, DRM_EPD_WF_GC16);
+ 		if (!kthread_should_stop()){
+ 			kthread_parkme();
+@@ -1334,6 +1338,7 @@ static int rockchip_ebc_drm_init(struct rockchip_ebc *ebc)
+ 	struct drm_device *drm = &ebc->drm;
+ 	struct drm_bridge *bridge;
+ 	int ret;
++	const struct firmware * default_offscreen;
+ 
+ 	ret = drmm_epd_lut_file_init(drm, &ebc->lut_file, "rockchip/ebc.wbf");
+ 	if (ret)
+@@ -1392,6 +1397,24 @@ static int rockchip_ebc_drm_init(struct rockchip_ebc *ebc)
+ 
+ 	drm_fbdev_generic_setup(drm, 0);
+ 
++	// check if there is a default off-screen
++	if (!request_firmware(&default_offscreen, "rockchip/rockchip_ebc_default_screen.bin", drm->dev))
++	{
++		printk(KERN_INFO "rockchip_ebc: default off-screen file found\n");
++		if (default_offscreen->size != 1314144)
++			drm_err(drm, "Size of default offscreen data file is not 1314144\n");
++		else {
++			printk(KERN_INFO "rockchip_ebc: loading default off-screen\n");
++			memcpy(ebc->off_screen, default_offscreen->data, 1314144);
++		}
++	} else {
++		printk(KERN_INFO "rockchip_ebc: no default off-screen file found\n");
++		// fill the off-screen with some values
++		memset(ebc->off_screen, 0xff, 1314144);
++		/* memset(ebc->off_screen, 0x00, 556144); */
++	}
++	release_firmware(default_offscreen);
++
+ 	return 0;
+ }
+ 
+-- 
+2.30.2
+
