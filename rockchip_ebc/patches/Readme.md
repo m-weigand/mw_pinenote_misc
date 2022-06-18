@@ -2,9 +2,9 @@
 
 ## Based upon
 
-Smaeuls repository https://github.com/smaeul/linux.git
-Branch pinenote-next
-commit 0b654237163e30b9812185859e0545b25a75444b
+* Smaeuls repository https://github.com/smaeul/linux.git
+* Branch pinenote-next
+* commit 0b654237163e30b9812185859e0545b25a75444b
 
 ## New features (as of 2022.Jun.18)
 
