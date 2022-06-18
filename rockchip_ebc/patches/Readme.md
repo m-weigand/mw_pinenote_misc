@@ -28,3 +28,28 @@ Check if the patch can be correctly applied:
 	patch --dry-run -p1 < rockchip_ebc_patches_mw_20220618.patch
 
 Then remove the **--dry-run** option and rerun to actually apply.
+
+## Open issues
+
+* Fix locking: Use the queue_lock to make sure that the final buffer is not
+  being written to while contents are blitted to the next buffer.
+* Re-evaluate the locking approach: As implemented now the refresh takes a
+  little bit longer as we a) wait for each frame to finish before preparing the
+  next one, and b) we more aggressively lock in the atomic_update and
+  partial_refresh functions. Maybe we need a switch to compromise on image
+  quality/consistency and drawing speed?
+* Still no idea how to make sure that the final-buffer and the area queue keep
+  in sync when lots of damaged areas are reported that overlap and thus
+  overwrite the framebuffer. I think in the end to fully fix this we would need
+  multiple final buffers and keep track of overlapping areas.
+* The off-screen buffers should probably be allocated dynamically based on the
+  reported framebuffer size. This would also entail a two-step ioctl approach
+  where the first call fills in the fb size and the second one reads a
+  pre-allocated user-space memory area.
+* The full-refresh ioctl is temporary as this is not a valid use of ioctls. Not
+  sure how to modify this so it could potentially be kept. Also, a way for
+  non-root users to trigger a full refresh would be nice (we will always
+  encounter applications/compositors that will not be aware of the epd
+  requirements).
+* I'm still seeing gray areas in xournalpp from time to time. This points to a
+  bug in the scheduling/area-splitting code. Needs more investigation
