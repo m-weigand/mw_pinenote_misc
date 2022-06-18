@@ -25,6 +25,6 @@ Check if the patch can be correctly applied:
 
 	cd linux
 	git checkout pinenote-next
-	patch --dry-run -p1 < rockchip_ebc_patches_mw_20220611.patch
+	patch --dry-run -p1 < rockchip_ebc_patches_mw_20220618.patch
 
 Then remove the **--dry-run** option and rerun to actually apply.
