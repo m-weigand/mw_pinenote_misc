@@ -1,5 +1,7 @@
 # Rockchip_ebc modifications
 
+**WARNING: Due to time constraints these modifications are not well tested! Use with care.**
+
 ## Based upon
 
 * Smaeuls repository https://github.com/smaeul/linux.git
@@ -31,6 +33,7 @@ Then remove the **--dry-run** option and rerun to actually apply.
 
 ## Open issues
 
+* reflection=0 shows mirrors screen
 * Fix locking: Use the queue_lock to make sure that the final buffer is not
   being written to while contents are blitted to the next buffer.
 * Re-evaluate the locking approach: As implemented now the refresh takes a
