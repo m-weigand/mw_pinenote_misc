@@ -1,0 +1,133 @@
+diff --git a/arch/arm64/boot/dts/rockchip/rk3566-pinenote.dtsi b/arch/arm64/boot/dts/rockchip/rk3566-pinenote.dtsi
+index 59ac178881b3..a047473affcc 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3566-pinenote.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3566-pinenote.dtsi
+@@ -58,31 +58,31 @@ battery_cell: battery-cell {
+ 				       <3710000 15>, <3680000 10>, <3670000  5>, <3500000  0>;
+ 	};
+ 
+-	bt_sco_codec: bt-sco-codec {
+-		compatible = "linux,bt-sco";
+-		#sound-dai-cells = <1>;
+-	};
+-
+-	bt-sound {
+-		compatible = "simple-audio-card";
+-		#address-cells = <1>;
+-		#size-cells = <0>;
+-		simple-audio-card,name = "PineNote Bluetooth";
+-
+-		simple-audio-card,dai-link@0 {
+-			format = "i2s";
+-			frame-master = <&bt_link0_cpu>;
+-			bitclock-master = <&bt_link0_cpu>;
+-
+-			bt_link0_cpu: cpu {
+-				sound-dai = <&i2s2_2ch>;
+-			};
+-
+-			bt_link0_codec: codec {
+-				sound-dai = <&bt_sco_codec 0>;
+-			};
+-		};
+-	};
++	// bt_sco_codec: bt-sco-codec {
++		// compatible = "linux,bt-sco";
++		// #sound-dai-cells = <1>;
++	// };
++
++	// bt-sound {
++		// compatible = "simple-audio-card";
++		// #address-cells = <1>;
++		// #size-cells = <0>;
++		// simple-audio-card,name = "PineNote Bluetooth";
++//
++		// simple-audio-card,dai-link@0 {
++			// format = "i2s";
++			// frame-master = <&bt_link0_cpu>;
++			// bitclock-master = <&bt_link0_cpu>;
++//
++			// bt_link0_cpu: cpu {
++				// sound-dai = <&i2s2_2ch>;
++			// };
++//
++			// bt_link0_codec: codec {
++				// sound-dai = <&bt_sco_codec 0>;
++			// };
++		// };
++	// };
+ 
+ 	dmic_codec: dmic-codec {
+ 		compatible = "dmic-codec";
+@@ -95,15 +95,15 @@ gpio-keys {
+ 		pinctrl-0 = <&hall_int_l>;
+ 		pinctrl-names = "default";
+ 
+-		cover {
+-			label = "cover";
+-			gpios = <&gpio0 RK_PC7 GPIO_ACTIVE_LOW>;
+-			linux,input-type = <EV_SW>;
+-			linux,code = <SW_MACHINE_COVER>;
+-			linux,can-disable;
+-			wakeup-event-action = <EV_ACT_DEASSERTED>;
+-			wakeup-source;
+-		};
++		/* cover { */
++		/* 	label = "cover"; */
++		/* 	gpios = <&gpio0 RK_PC7 GPIO_ACTIVE_LOW>; */
++		/* 	linux,input-type = <EV_SW>; */
++		/* 	linux,code = <SW_MACHINE_COVER>; */
++		/* 	linux,can-disable; */
++		/* 	wakeup-event-action = <EV_ACT_DEASSERTED>; */
++		/* 	wakeup-source; */
++		/* }; */
+ 	};
+ 
+ 	gpio-leds {
+@@ -340,7 +340,7 @@ &eink {
+ 
+ &gpu {
+ 	mali-supply = <&vdd_gpu_npu>;
+-	// status = "okay";
++	status = "okay";
+ };
+ 
+ &i2c0 {
+@@ -671,17 +671,26 @@ accelerometer@18 {
+ 		vddio-supply = <&vcc_3v3>;
+ 	};
+ 
+-	touchscreen@24 {
+-		compatible = "cypress,tt21000";
+-		hid-descr-addr = <0x1>;
+-		reg = <0x24>;
+-		interrupt-parent = <&gpio0>;
+-		interrupts = <RK_PA6 IRQ_TYPE_LEVEL_LOW>;
+-		pinctrl-0 = <&ts_int_l>, <&ts_rst_l>;
+-		pinctrl-names = "default";
+-		reset-gpios = <&gpio0 RK_PA5 GPIO_ACTIVE_LOW>;
+-		vdd-supply = <&vcc_3v3_pmu>;
+-	};
++	// from pgwipeouts dtsi
++    touchscreen@24 {
++        compatible = "cypress,tma448";
++//      compatible = "cypress,tt21000";
++        hid-descr-addr = <0x1>;
++        reg = <0x24>;
++        interrupt-parent = <&gpio0>;
++        interrupts = <RK_PA6 IRQ_TYPE_LEVEL_LOW>;
++        pinctrl-0 = <&ts_int_l>, <&ts_rst_l>;
++        pinctrl-names = "default";
++        reset-gpios = <&gpio0 RK_PA5 GPIO_ACTIVE_LOW>;
++        vdd-supply = <&vcc_3v3_pmu>;
++        touchscreen-max-pressure = <46>;
++        touchscreen-min-x = <10>;
++        touchscreen-min-y = <5>;
++        touchscreen-size-x = <1863>;
++        touchscreen-size-y = <1399>;
++        touchscreen-x-mm = <1864>;
++        touchscreen-y-mm = <1400>;
++    };
+ };
+ 
+ &i2s1_8ch {
