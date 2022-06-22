@@ -1,27 +1,15 @@
 diff --git a/arch/arm64/configs/pinenote_defconfig b/arch/arm64/configs/pinenote_defconfig
-index bea435dc92c4..5f5a4db4bcc0 100644
+index bea435dc92c4..86cdaa92cc2f 100644
 --- a/arch/arm64/configs/pinenote_defconfig
 +++ b/arch/arm64/configs/pinenote_defconfig
-@@ -86,8 +86,9 @@ CONFIG_ARCH_ROCKCHIP=y
+@@ -86,6 +86,7 @@ CONFIG_ARCH_ROCKCHIP=y
  # CONFIG_NVIDIA_CARMEL_CNP_ERRATUM is not set
  # CONFIG_SOCIONEXT_SYNQUACER_PREITS is not set
  CONFIG_SCHED_MC=y
 +CONFIG_SCHED_SMT=y
  CONFIG_NR_CPUS=4
--CONFIG_HZ_1000=y
-+CONFIG_HZ_300=y
+ CONFIG_HZ_1000=y
  # CONFIG_UNMAP_KERNEL_AT_EL0 is not set
- # CONFIG_ARM64_TAGGED_ADDR_ABI is not set
- CONFIG_COMPAT=y
-@@ -103,7 +104,7 @@ CONFIG_CP15_BARRIER_EMULATION=y
- # CONFIG_ARM64_EPAN is not set
- # CONFIG_ARM64_SVE is not set
- # CONFIG_RELOCATABLE is not set
--CONFIG_PM_AUTOSLEEP=y
-+CONFIG_PM_AUTOSLEEP=n
- CONFIG_PM_WAKELOCKS=y
- CONFIG_PM_DEBUG=y
- CONFIG_PM_ADVANCED_DEBUG=y
 @@ -155,7 +156,7 @@ CONFIG_CGROUP_NET_PRIO=y
  CONFIG_BT=m
  CONFIG_BT_RFCOMM=y
