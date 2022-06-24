@@ -1,0 +1,27 @@
+From ef6c987fb94885c3678fb5ece754d813b129117a Mon Sep 17 00:00:00 2001
+From: Maximilian Weigand <mweigand@mweigand.net>
+Date: Thu, 23 Jun 2022 20:16:15 +0200
+Subject: [PATCH 38/38] [rockchip_ebc] hopefully fix blitting of
+ odd-starting-coordinate areas
+
+---
+ drivers/gpu/drm/rockchip/rockchip_ebc.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/rockchip/rockchip_ebc.c b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+index 62daf5c107c4..b7358a350655 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_ebc.c
++++ b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+@@ -1526,7 +1526,8 @@ static bool rockchip_ebc_blit_fb(const struct rockchip_ebc_ctx *ctx,
+ 				// want to keep here
+ 				// keep 4 higher bits
+ 				tmp_pixel = *dbuf & 0b11110000;
+-				rgb1 = tmp_pixel;
++				// shift by four pixels to the lower bits
++				rgb1 = tmp_pixel >> 4;
+ 			}
+ 
+ 			gray = rgb0 | rgb1 << 4;
+-- 
+2.30.2
+

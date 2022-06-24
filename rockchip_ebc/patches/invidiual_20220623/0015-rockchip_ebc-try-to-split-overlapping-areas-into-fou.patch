@@ -1,0 +1,282 @@
+From 2855fb8cf5824b9d0d62d194440a4d7aad360c28 Mon Sep 17 00:00:00 2001
+From: Maximilian Weigand <mweigand@mweigand.net>
+Date: Thu, 9 Jun 2022 09:56:13 +0200
+Subject: [PATCH 15/38] [rockchip_ebc] try to split overlapping areas into four
+ subareas during refresh so that the non-overlapping parts can start to
+ refresh as soon as possible and we only need to wait for the overlapping
+ part.
+
+The number of areas to split while preparing each frame can be limited.
+I'm not sure if this is really required, but I fear that too many splits
+could slow down the refresh thread.
+
+Splitting areas can produce areas that do not align with full bytes (4
+bit/byte), so we also try to account for odd start/end clips.
+---
+ drivers/gpu/drm/rockchip/rockchip_ebc.c | 176 +++++++++++++++++++++++-
+ 1 file changed, 172 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/rockchip/rockchip_ebc.c b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+index 9a0a238829bb..6f7bbe0bd70f 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_ebc.c
++++ b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+@@ -415,10 +415,15 @@ static void rockchip_ebc_global_refresh(struct rockchip_ebc *ebc,
+ static bool rockchip_ebc_schedule_area(struct list_head *areas,
+ 				       struct rockchip_ebc_area *area,
+ 				       struct drm_device *drm,
+-				       u32 current_frame, u32 num_phases)
++				       u32 current_frame, u32 num_phases,
++				       struct rockchip_ebc_area *next_area,
++					   int * split_counter
++					   )
+ {
+ 	struct rockchip_ebc_area *other;
++	// by default, begin now
+ 	u32 frame_begin = current_frame;
++	/* printk(KERN_INFO "scheduling area: %i-%i %i-%i\n", area->clip.x1, area->clip.x2, area->clip.y1, area->clip.y2); */
+ 
+ 	list_for_each_entry(other, areas, list) {
+ 		struct drm_rect intersection;
+@@ -437,11 +442,124 @@ static bool rockchip_ebc_schedule_area(struct list_head *areas,
+ 		intersection = area->clip;
+ 		if (!drm_rect_intersect(&intersection, &other->clip))
+ 			continue;
++		// we got here, so there is a collision
+ 
+ 		/* If the other area already started, wait until it finishes. */
+ 		if (other->frame_begin < current_frame) {
+ 			frame_begin = other_end;
+-			continue;
++
++			// so here we would optimally want to split the new area into three
++			// parts that do not overlap with the already-started area, and one
++			// which is overlapping. The overlapping one will be scheduled for
++			// later, but the other three should start immediately.
++
++			// if the area is equal to the clip, continue
++			if (drm_rect_equals(&area->clip, &intersection))
++				continue;
++
++			// for now, min size if 2x2
++			if ((area->clip.x2 - area->clip.x1 < 2) | (area->clip.y2 - area->clip.y1 < 2))
++				continue;
++
++			// ok, we want to split this area and start with any partial areas
++			// that are not overlapping (well, let this be decided upon at the
++			// next outer loop - we delete this area so we need not to juggle
++			// around the four areas until we found the one that is actually
++			// overlapping)
++			int xmin, xmax, ymin, ymax, xcenter, ycenter;
++			xmin = area->clip.x1;
++			if (intersection.x1 > xmin)
++				xcenter = intersection.x1;
++			else
++				xcenter = intersection.x2;
++			xmax = area->clip.x2;
++
++			ymin = area->clip.y1;
++			if (intersection.y1 > ymin)
++				ycenter = intersection.y1;
++			else
++				ycenter = intersection.y2;
++			ymax = area->clip.y2;
++
++			if ((xmin == xcenter) | (xcenter == xmax))
++				continue;
++			if ((ymin == ycenter) | (ycenter == ymax))
++				continue;
++
++			// we do not want to overhelm the refresh thread and limit us to a
++			// certain number of splits. The rest needs to wait
++			if (*split_counter >= 6)
++				continue;
++
++			// we need four new rokchip_ebc_area entries that we splice into
++			// the list. Note that the currently next item shall be copied
++			// backwards because to prevent the outer list iteration from
++			// skipping over our newly created items.
++
++			struct rockchip_ebc_area * item1;
++			struct rockchip_ebc_area * item2;
++			struct rockchip_ebc_area * item3;
++			struct rockchip_ebc_area * item4;
++			item1 = kmalloc(sizeof(*item1), GFP_KERNEL);
++			item2 = kmalloc(sizeof(*item2), GFP_KERNEL);
++			item3 = kmalloc(sizeof(*item3), GFP_KERNEL);
++			item4 = kmalloc(sizeof(*item4), GFP_KERNEL);
++
++			// TODO: Error checking!!!!
++			/* if (!area) */
++			/* 	return -ENOMEM; */
++
++			if (list_is_last(&area->list, areas)){
++				/* printk(KERN_INFO "adding to end of list\n"); */
++				list_add_tail(&item1->list, areas);
++				list_add_tail(&item2->list, areas);
++				list_add_tail(&item3->list, areas);
++				list_add_tail(&item4->list, areas);
++			}
++			else{
++				/* printk(KERN_INFO "splicing into the middle of the list\n"); */
++				__list_add(&item4->list, areas, areas->next);
++				__list_add(&item3->list, areas, areas->next);
++				__list_add(&item2->list, areas, areas->next);
++				__list_add(&item1->list, areas, areas->next);
++			}
++			next_area = item1;
++
++			// now fill the areas
++			/* printk(KERN_INFO "area1: %i %i %i %i\n", xmin, xcenter, ymin, ycenter); */
++			/* printk(KERN_INFO "area2: %i %i %i %i\n", xmin, xcenter, ycenter, ymax); */
++			/* printk(KERN_INFO "area3: %i %i %i %i\n", xcenter, xmax, ymin, ycenter); */
++			/* printk(KERN_INFO "area4: %i %i %i %i\n", xcenter, xmax, ycenter, ymax); */
++
++			item1->frame_begin = EBC_FRAME_PENDING;
++			item1->clip.x1 = xmin;
++			item1->clip.x2 = xcenter;
++			item1->clip.y1 = ymin;
++			item1->clip.y2 = ycenter;
++
++			item2->frame_begin = EBC_FRAME_PENDING;
++			item2->clip.x1 = xmin;
++			item2->clip.x2 = xcenter;
++			item2->clip.y1 = ycenter + 1;
++			item2->clip.y2 = ymax;
++
++			item3->frame_begin = EBC_FRAME_PENDING;
++			item3->clip.x1 = xcenter + 1;
++			item3->clip.x2 = xmax;
++			item3->clip.y1 = ymin;
++			item3->clip.y2 = ycenter;
++
++			item4->frame_begin = EBC_FRAME_PENDING;
++			item4->clip.x1 = xcenter + 1;
++			item4->clip.x2 = xmax;
++			item4->clip.y1 = ycenter + 1;
++			item4->clip.y2 = ymax;
++
++			*split_counter++;
++
++			// let the outer loop delete this area
++			return false;
++			/* continue; */
+ 		}
+ 
+ 		/*
+@@ -538,8 +656,18 @@ static void rockchip_ebc_blit_pixels(const struct rockchip_ebc_ctx *ctx,
+ 				     u8 *dst, const u8 *src,
+ 				     const struct drm_rect *clip)
+ {
++	bool start_x_is_odd = clip->x1 & 1;
++	bool end_x_is_odd = clip->x2 & 1;
++	u8 first_odd;
++	u8 last_odd;
++
+ 	unsigned int x1_bytes = clip->x1 / 2;
+ 	unsigned int x2_bytes = clip->x2 / 2;
++	// the integer division floors by default, but we want to include the last
++	// byte (partially)
++	if (end_x_is_odd)
++		x2_bytes++;
++
+ 	unsigned int pitch = ctx->gray4_pitch;
+ 	unsigned int width = x2_bytes - x1_bytes;
+ 	const u8 *src_line;
+@@ -550,8 +678,29 @@ static void rockchip_ebc_blit_pixels(const struct rockchip_ebc_ctx *ctx,
+ 	src_line = src + clip->y1 * pitch + x1_bytes;
+ 
+ 	for (y = clip->y1; y < clip->y2; y++) {
++		if (start_x_is_odd)
++			// keep only lower bit to restore it after the blitting
++			first_odd = *src_line & 0b00001111;
++		if (end_x_is_odd){
++			dst_line += pitch - 1;
++			// keep only the upper bit for restoring later
++			last_odd = *dst_line & 0b11110000;
++			dst_line -= pitch - 1;
++		}
++
+ 		memcpy(dst_line, src_line, width);
+ 
++		if (start_x_is_odd){
++			// write back the first 4 saved bits
++			*dst_line = first_odd | (*dst_line & 0b11110000);
++		}
++		if (end_x_is_odd){
++			// write back the last 4 saved bits
++			dst_line += pitch -1;
++			*dst_line = (*dst_line & 0b00001111) | last_odd;
++			dst_line -= pitch -1;
++		}
++
+ 		dst_line += pitch;
+ 		src_line += pitch;
+ 	}
+@@ -582,6 +731,7 @@ static void rockchip_ebc_partial_refresh(struct rockchip_ebc *ebc,
+ 		dma_addr_t phase_handle = phase_handles[frame % 2];
+ 		bool sync_next = false;
+ 		bool sync_prev = false;
++		int split_counter = 0;
+ 
+ 		// now the CPU is allowed to change the phase buffer
+ 		dma_sync_single_for_cpu(dev, phase_handle, ctx->phase_size, DMA_TO_DEVICE);
+@@ -601,18 +751,20 @@ static void rockchip_ebc_partial_refresh(struct rockchip_ebc *ebc,
+ 			 */
+ 			if (area->frame_begin == EBC_FRAME_PENDING &&
+ 			    !rockchip_ebc_schedule_area(&areas, area, drm, frame,
+-							ebc->lut.num_phases)) {
++							ebc->lut.num_phases, next_area, &split_counter)) {
+ 				list_del(&area->list);
+ 				kfree(area);
+ 				continue;
+ 			}
+ 
++			// we wait a little bit longer to start
+ 			frame_delta = frame - area->frame_begin;
+ 			if (frame_delta < 0)
+ 				continue;
+ 
+ 			/* Copy ctx->final to ctx->next on the first frame. */
+ 			if (frame_delta == 0) {
++				printk(KERN_INFO "rockchip partial refresh starting area on frame %i (%i/%i %i/%i)\n", frame, area->clip.x1, area->clip.x2, area->clip.y1, area->clip.y2);
+ 				local_area_count += (u64) (
+ 					area->clip.x2 - area->clip.x1) *
+ 					(area->clip.y2 - area->clip.y1);
+@@ -1212,9 +1364,13 @@ static bool rockchip_ebc_blit_fb(const struct rockchip_ebc_ctx *ctx,
+ 	int delta_x;
+ 	void *dst;
+ 
++	bool start_x_is_odd = src_clip->x1 & 1;
++	bool end_x_is_odd = src_clip->x2 & 1;
++
+ 	delta_x = panel_reflection ? -1 : 1;
+ 	start_x = panel_reflection ? src_clip->x2 - 1 : src_clip->x1;
+ 
++	// I think this also works if dst_clip->x1 is odd
+ 	dst = ctx->final + dst_clip->y1 * dst_pitch + dst_clip->x1 / 2;
+ 	src = vaddr + src_clip->y1 * src_pitch + start_x * fb->format->cpp[0];
+ 
+@@ -1236,7 +1392,19 @@ static bool rockchip_ebc_blit_fb(const struct rockchip_ebc_ctx *ctx,
+ 			/* Unbias the value for rounding to 4 bits. */
+ 			rgb0 += 0x07000000U; rgb1 += 0x07000000U;
+ 
+-			gray = rgb0 >> 28 | rgb1 >> 28 << 4;
++			rgb0 >>= 28;
++			rgb1 >>= 28;
++
++			if (x == src_clip->x1 && start_x_is_odd) {
++				// rgb0 should be filled with the content of the src pixel here
++				rgb0 = *dbuf;
++			}
++			if (x == src_clip->x2 && end_x_is_odd) {
++				// rgb1 should be filled with the content of the src pixel here
++				rgb1 = *dbuf;
++			}
++
++			gray = rgb0 | rgb1 << 4;
+ 			changed |= gray ^ *dbuf;
+ 			*dbuf++ = gray;
+ 		}
+-- 
+2.30.2
+
