@@ -1,0 +1,50 @@
+From 3242d3d78bdc68361c165838f59724732cdbb0e3 Mon Sep 17 00:00:00 2001
+From: Maximilian Weigand <mweigand@mweigand.net>
+Date: Wed, 22 Jun 2022 10:23:03 +0200
+Subject: [PATCH 35/39] [rockchip_ebc] hopefully fix the blitting routine for
+ odd start/end coordinates and panel_reflection=1
+
+---
+ drivers/gpu/drm/rockchip/rockchip_ebc.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/rockchip/rockchip_ebc.c b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+index e8d108727c75..f30010151c02 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_ebc.c
++++ b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+@@ -1480,9 +1480,13 @@ static bool rockchip_ebc_blit_fb(const struct rockchip_ebc_ctx *ctx,
+ 	u8 changed = 0;
+ 	int delta_x;
+ 	void *dst;
++	int test1, test2;
+ 
+ 	delta_x = panel_reflection ? -1 : 1;
+ 	start_x = panel_reflection ? src_clip->x2 - 1 : src_clip->x1;
++	// depending on the direction we must either save the first or the last bit
++	test1 = panel_reflection ? adjust_x1 : adjust_x2;
++	test2 = panel_reflection ? adjust_x2 : adjust_x1;
+ 
+ 	dst = ctx->final + dst_clip->y1 * dst_pitch + dst_clip->x1 / 2;
+ 	src = vaddr + src_clip->y1 * src_pitch + start_x * fb->format->cpp[0];
+@@ -1509,8 +1513,7 @@ static bool rockchip_ebc_blit_fb(const struct rockchip_ebc_ctx *ctx,
+ 			rgb0 >>= 28;
+ 			rgb1 >>= 28;
+ 
+-			// Does this account for panel reflection?
+-			if (x == src_clip->x1 && (adjust_x1 == 1)) {
++			if (x == src_clip->x1 && (test1 == 1)) {
+ 				// rgb0 should be filled with the content of the src pixel here
+ 				// keep lower 4 bits
+ 				// I'm not sure how to directly read only one byte from the u32
+@@ -1518,7 +1521,7 @@ static bool rockchip_ebc_blit_fb(const struct rockchip_ebc_ctx *ctx,
+ 				tmp_pixel = *dbuf & 0b00001111;
+ 				rgb0 = tmp_pixel;
+ 			}
+-			if (x == src_clip->x2 && (adjust_x2 == 1)) {
++			if (x == src_clip->x2 && (test2 == 1)) {
+ 				// rgb1 should be filled with the content of the dst pixel we
+ 				// want to keep here
+ 				// keep 4 higher bits
+-- 
+2.30.2
+

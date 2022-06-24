@@ -1,0 +1,24 @@
+From 491388a2f538ef97c9699c723b3b574072b0fd85 Mon Sep 17 00:00:00 2001
+From: Maximilian Weigand <mweigand@mweigand.net>
+Date: Fri, 17 Jun 2022 11:10:24 +0200
+Subject: [PATCH 24/39] [rockchip_ebc] remove comment
+
+---
+ drivers/gpu/drm/rockchip/rockchip_ebc.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/rockchip/rockchip_ebc.c b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+index 52bf5d11ec57..5d42b45abb5b 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_ebc.c
++++ b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+@@ -591,7 +591,6 @@ static bool rockchip_ebc_schedule_area(struct list_head *areas,
+ 		intersection = area->clip;
+ 		if (!drm_rect_intersect(&intersection, &other->clip))
+ 			continue;
+-		// we got here, so there is a collision
+ 
+ 		/* If the other area already started, wait until it finishes. */
+ 		if (other->frame_begin < current_frame) {
+-- 
+2.30.2
+

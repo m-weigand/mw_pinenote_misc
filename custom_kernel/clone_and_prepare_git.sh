@@ -27,5 +27,5 @@ wget -nc https://raw.githubusercontent.com/m-weigand/mw_pinenote_misc/main/rockc
 cd linux
 git apply ../pinenote_defconfig.patch
 git apply ../rk3566-pinenote_dtsi.patch
-git apply ../rockchip_ebc_patches_mw_20220623.patch
+git apply ../rockchip_ebc_patches_mw_20220624.patch
 cd ..

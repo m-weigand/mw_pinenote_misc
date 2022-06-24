@@ -1,0 +1,27 @@
+From 35f8f647a3f7bd68cd96abee41c442abded7c2b8 Mon Sep 17 00:00:00 2001
+From: Maximilian Weigand <mweigand@mweigand.net>
+Date: Fri, 17 Jun 2022 11:26:32 +0200
+Subject: [PATCH 26/39] [rockchip_ebc] rework comment
+
+---
+ drivers/gpu/drm/rockchip/rockchip_ebc.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/rockchip/rockchip_ebc.c b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+index 7f5fe7252ac4..974e9d23c648 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_ebc.c
++++ b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+@@ -624,8 +624,8 @@ static bool rockchip_ebc_schedule_area(struct list_head *areas,
+ 			return false;
+ 		}
+ 
+-		/* Otherwise, the earliest start is the same time as that of the other
+-		 * area. */
++		/* They do overlap but are are not equal and both not started yet, so
++		 * they can potentially start together */
+ 		frame_begin = max(frame_begin, other->frame_begin);
+ 
+ 		// try to split, otherwise continue
+-- 
+2.30.2
+

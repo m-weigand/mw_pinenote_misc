@@ -1,0 +1,26 @@
+From 5a177ed3f5813d31b8d2aeda46866a067f296fdd Mon Sep 17 00:00:00 2001
+From: Maximilian Weigand <mweigand@mweigand.net>
+Date: Fri, 17 Jun 2022 11:26:13 +0200
+Subject: [PATCH 25/39] [rockchip_ebc] fix another scheduling bug: only
+ increase, but never drecrease the frame_begin number
+
+---
+ drivers/gpu/drm/rockchip/rockchip_ebc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/rockchip/rockchip_ebc.c b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+index 5d42b45abb5b..7f5fe7252ac4 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_ebc.c
++++ b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+@@ -594,7 +594,7 @@ static bool rockchip_ebc_schedule_area(struct list_head *areas,
+ 
+ 		/* If the other area already started, wait until it finishes. */
+ 		if (other->frame_begin < current_frame) {
+-			frame_begin = other_end;
++			frame_begin = max(frame_begin, other_end);
+ 
+ 			// so here we would optimally want to split the new area into three
+ 			// parts that do not overlap with the already-started area, and one
+-- 
+2.30.2
+

@@ -1,0 +1,138 @@
+From ecbf9a93fc89fa8129bdd6ef0db4e39988d65d3d Mon Sep 17 00:00:00 2001
+From: Maximilian Weigand <mweigand@mweigand.net>
+Date: Fri, 17 Jun 2022 12:41:15 +0200
+Subject: [PATCH 28/39] [rockchip_ebc] enable drawing of clips not aligned to
+ full bytes (i.e. even start/end coordinates).
+
+Needs more testing.
+---
+ drivers/gpu/drm/rockchip/rockchip_ebc.c | 62 ++++++++++++++++---------
+ 1 file changed, 41 insertions(+), 21 deletions(-)
+
+diff --git a/drivers/gpu/drm/rockchip/rockchip_ebc.c b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+index 97173aeed53c..4baefc8b5496 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_ebc.c
++++ b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+@@ -1418,7 +1418,10 @@ static bool rockchip_ebc_blit_fb(const struct rockchip_ebc_ctx *ctx,
+ 				 const struct drm_rect *dst_clip,
+ 				 const void *vaddr,
+ 				 const struct drm_framebuffer *fb,
+-				 const struct drm_rect *src_clip)
++				 const struct drm_rect *src_clip,
++				 int adjust_x1,
++				 int adjust_x2
++				 )
+ {
+ 	unsigned int dst_pitch = ctx->gray4_pitch;
+ 	unsigned int src_pitch = fb->pitches[0];
+@@ -1428,13 +1431,9 @@ static bool rockchip_ebc_blit_fb(const struct rockchip_ebc_ctx *ctx,
+ 	int delta_x;
+ 	void *dst;
+ 
+-	bool start_x_is_odd = src_clip->x1 & 1;
+-	bool end_x_is_odd = src_clip->x2 & 1;
+-
+ 	delta_x = panel_reflection ? -1 : 1;
+ 	start_x = panel_reflection ? src_clip->x2 - 1 : src_clip->x1;
+ 
+-	// I think this also works if dst_clip->x1 is odd
+ 	dst = ctx->final + dst_clip->y1 * dst_pitch + dst_clip->x1 / 2;
+ 	src = vaddr + src_clip->y1 * src_pitch + start_x * fb->format->cpp[0];
+ 
+@@ -1445,6 +1444,7 @@ static bool rockchip_ebc_blit_fb(const struct rockchip_ebc_ctx *ctx,
+ 		for (x = src_clip->x1; x < src_clip->x2; x += 2) {
+ 			u32 rgb0, rgb1;
+ 			u8 gray;
++			u8 tmp_pixel;
+ 
+ 			rgb0 = *sbuf; sbuf += delta_x;
+ 			rgb1 = *sbuf; sbuf += delta_x;
+@@ -1459,13 +1459,21 @@ static bool rockchip_ebc_blit_fb(const struct rockchip_ebc_ctx *ctx,
+ 			rgb0 >>= 28;
+ 			rgb1 >>= 28;
+ 
+-			if (x == src_clip->x1 && start_x_is_odd) {
++			// Does this account for panel reflection?
++			if (x == src_clip->x1 && (adjust_x1 == 1)) {
+ 				// rgb0 should be filled with the content of the src pixel here
+-				rgb0 = *dbuf;
++				// keep lower 4 bits
++				// I'm not sure how to directly read only one byte from the u32
++				// pointer dbuf ...
++				tmp_pixel = *dbuf & 0b00001111;
++				rgb0 = tmp_pixel;
+ 			}
+-			if (x == src_clip->x2 && end_x_is_odd) {
+-				// rgb1 should be filled with the content of the src pixel here
+-				rgb1 = *dbuf;
++			if (x == src_clip->x2 && (adjust_x2 == 1)) {
++				// rgb1 should be filled with the content of the dst pixel we
++				// want to keep here
++				// keep 4 higher bits
++				tmp_pixel = *dbuf & 0b11110000;
++				rgb1 = tmp_pixel;
+ 			}
+ 
+ 			gray = rgb0 | rgb1 << 4;
+@@ -1511,7 +1519,9 @@ static void rockchip_ebc_plane_atomic_update(struct drm_plane *plane,
+ 	list_for_each_entry_safe(area, next_area, &ebc_plane_state->areas, list) {
+ 		struct drm_rect *dst_clip = &area->clip;
+ 		struct drm_rect src_clip = area->clip;
+-		int adjust;
++		int adjust_x1;
++		int adjust_x2;
++		bool clip_changed_fb;
+ 
+ 		/* Convert from plane coordinates to CRTC coordinates. */
+ 		drm_rect_translate(dst_clip, translate_x, translate_y);
+@@ -1519,18 +1529,20 @@ static void rockchip_ebc_plane_atomic_update(struct drm_plane *plane,
+ 		/* Adjust the clips to always process full bytes (2 pixels). */
+ 		/* NOTE: in direct mode, the minimum block size is 4 pixels. */
+ 		if (direct_mode)
+-			adjust = dst_clip->x1 & 3;
++			adjust_x1 = dst_clip->x1 & 3;
+ 		else
+-			adjust = dst_clip->x1 & 1;
+-		dst_clip->x1 -= adjust;
+-		src_clip.x1  -= adjust;
++			adjust_x1 = dst_clip->x1 & 1;
++
++		dst_clip->x1 -= adjust_x1;
++		src_clip.x1  -= adjust_x1;
+ 
+ 		if (direct_mode)
+-			adjust = ((dst_clip->x2 + 3) ^ 3) & 3;
++			adjust_x2 = ((dst_clip->x2 + 3) ^ 3) & 3;
+ 		else
+-			adjust = dst_clip->x2 & 1;
+-		dst_clip->x2 += adjust;
+-		src_clip.x2  += adjust;
++			adjust_x2 = dst_clip->x2 & 1;
++
++		dst_clip->x2 += adjust_x2;
++		src_clip.x2  += adjust_x2;
+ 
+ 		if (panel_reflection) {
+ 			int x1 = dst_clip->x1, x2 = dst_clip->x2;
+@@ -1539,8 +1551,16 @@ static void rockchip_ebc_plane_atomic_update(struct drm_plane *plane,
+ 			dst_clip->x2 = plane_state->dst.x2 - x1;
+ 		}
+ 
+-		if (!rockchip_ebc_blit_fb(ctx, dst_clip, vaddr,
+-					  plane_state->fb, &src_clip)) {
++		clip_changed_fb = rockchip_ebc_blit_fb(ctx, dst_clip, vaddr,
++					  plane_state->fb, &src_clip, adjust_x1, adjust_x2);
++
++		// reverse coordinates
++		dst_clip->x1 += adjust_x1;
++		src_clip.x1  += adjust_x1;
++		dst_clip->x2 -= adjust_x2;
++		src_clip.x2  -= adjust_x2;
++
++		if (!clip_changed_fb) {
+ 			drm_dbg(plane->dev, "area %p (" DRM_RECT_FMT ") <= (" DRM_RECT_FMT ") skipped\n",
+ 				area, DRM_RECT_ARG(&area->clip), DRM_RECT_ARG(&src_clip));
+ 
+-- 
+2.30.2
+

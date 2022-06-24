@@ -1,0 +1,104 @@
+From f79e16df9a8f7853e206d5f4cb122ca231a0b2ab Mon Sep 17 00:00:00 2001
+From: Maximilian Weigand <mweigand@mweigand.net>
+Date: Mon, 30 May 2022 21:25:29 +0200
+Subject: [PATCH 03/39] [rockchip_ebc] Some people (including me on a Debian
+ sid installation) see kernel panics/hangs on reboot/shutdown (and module
+ unload) with the new driver.  Investigation shows that the refresh thread
+ hangs on the schedule() command, which lead me to believe that the thread is
+ not properly shut down when the kernel module is triggered to shutdown. This
+ patch attempts to
+
+- explicitly shut down the refresh thread before termination
+- adds some control commands to quickly finish for various park/stop
+  states
+- only attempts to park the refresh thread if it is not dead yet (which
+  caused a kernel panic on shutdown)
+---
+ drivers/gpu/drm/rockchip/rockchip_ebc.c | 24 +++++++++++++++---------
+ 1 file changed, 15 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/gpu/drm/rockchip/rockchip_ebc.c b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+index b0dfc493c059..4df73794281b 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_ebc.c
++++ b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+@@ -13,6 +13,7 @@
+ #include <linux/pm_runtime.h>
+ #include <linux/regmap.h>
+ #include <linux/regulator/consumer.h>
++#include <linux/sched.h>
+ #include <linux/dma-mapping.h>
+ 
+ #include <drm/drm_atomic.h>
+@@ -760,12 +761,13 @@ static int rockchip_ebc_refresh_thread(void *data)
+ 			rockchip_ebc_refresh(ebc, ctx, true, DRM_EPD_WF_RESET);
+ 		}
+ 
+-		while (!kthread_should_park()) {
++		while ((!kthread_should_park()) && (!kthread_should_stop())) {
+ 			rockchip_ebc_refresh(ebc, ctx, false, default_waveform);
+ 
+ 			set_current_state(TASK_IDLE);
+-			if (list_empty(&ctx->queue))
++			if (list_empty(&ctx->queue) && (!kthread_should_stop()) && (!kthread_should_park())){
+ 				schedule();
++			}
+ 			__set_current_state(TASK_RUNNING);
+ 		}
+ 
+@@ -775,8 +777,9 @@ static int rockchip_ebc_refresh_thread(void *data)
+ 		 */
+ 		memset(ctx->next, 0xff, ctx->gray4_size);
+ 		rockchip_ebc_refresh(ebc, ctx, true, DRM_EPD_WF_GC16);
+-
+-		kthread_parkme();
++		if (!kthread_should_stop()){
++			kthread_parkme();
++		}
+ 	}
+ 
+ 	return 0;
+@@ -925,7 +928,7 @@ static void rockchip_ebc_crtc_atomic_enable(struct drm_crtc *crtc,
+ 
+ 	crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
+ 	if (crtc_state->mode_changed)
+-		kthread_unpark(ebc->refresh_thread);
++			kthread_unpark(ebc->refresh_thread);
+ }
+ 
+ static void rockchip_ebc_crtc_atomic_disable(struct drm_crtc *crtc,
+@@ -935,8 +938,11 @@ static void rockchip_ebc_crtc_atomic_disable(struct drm_crtc *crtc,
+ 	struct drm_crtc_state *crtc_state;
+ 
+ 	crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
+-	if (crtc_state->mode_changed)
+-		kthread_park(ebc->refresh_thread);
++	if (crtc_state->mode_changed){
++		if (! ((ebc->refresh_thread->__state) & (TASK_DEAD))){
++			kthread_park(ebc->refresh_thread);
++		}
++	}
+ }
+ 
+ static const struct drm_crtc_helper_funcs rockchip_ebc_crtc_helper_funcs = {
+@@ -1573,9 +1579,8 @@ static int rockchip_ebc_remove(struct platform_device *pdev)
+ 	struct device *dev = &pdev->dev;
+ 
+ 	drm_dev_unregister(&ebc->drm);
+-	drm_atomic_helper_shutdown(&ebc->drm);
+-
+ 	kthread_stop(ebc->refresh_thread);
++	drm_atomic_helper_shutdown(&ebc->drm);
+ 
+ 	pm_runtime_disable(dev);
+ 	if (!pm_runtime_status_suspended(dev))
+@@ -1589,6 +1594,7 @@ static void rockchip_ebc_shutdown(struct platform_device *pdev)
+ 	struct rockchip_ebc *ebc = platform_get_drvdata(pdev);
+ 	struct device *dev = &pdev->dev;
+ 
++	kthread_stop(ebc->refresh_thread);
+ 	drm_atomic_helper_shutdown(&ebc->drm);
+ 
+ 	if (!pm_runtime_status_suspended(dev))
+-- 
+2.30.2
+
