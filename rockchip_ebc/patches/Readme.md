@@ -1,6 +1,7 @@
 # Rockchip_ebc modifications
 
 **WARNING: Due to time constraints these modifications are not well tested! Use with care.**
+See the **Usage** section below for information on how to use the new features.
 
 ## Based upon
 
@@ -27,13 +28,14 @@ Check if the patch can be correctly applied:
 
 	cd linux
 	git checkout pinenote-next
-	patch --dry-run -p1 < rockchip_ebc_patches_mw_20220618.patch
+	patch --dry-run -p1 < rockchip_ebc_patches_mw_20220623.patch
 
 Then remove the **--dry-run** option and rerun to actually apply.
 
 ## Open issues
 
-* reflection=0 shows mirrors screen
+* reflection=0 shows a mirrored screen (as far as I understand this is by
+  design and reflects the actual hardware orientation)
 * Fix locking: Use the queue_lock to make sure that the final buffer is not
   being written to while contents are blitted to the next buffer.
 * Re-evaluate the locking approach: As implemented now the refresh takes a
@@ -56,3 +58,25 @@ Then remove the **--dry-run** option and rerun to actually apply.
   requirements).
 * I'm still seeing gray areas in xournalpp from time to time. This points to a
   bug in the scheduling/area-splitting code. Needs more investigation
+
+## Usage
+
+All module parameters are controlled using the sysfs parameters in
+/sys/module/rockchip_ebc/parameters
+
+By default they need to be writen to as root, but this can be easily changed
+via udev rules.
+
+
+### Auto Refresh
+
+Enabling automatic global (full screene refreshes:
+
+echo 1 > /sys/module/rockchip_ebc/parameters/auto_refresh
+
+Global refreshes are triggered based on the area drawing using partial
+refreshes, in units of total screen area.
+
+echo 2 > /sys/module/rockchip_ebc/parameters/refresh_threshold
+
+therefore will trigger a globla refresh whenever 2 screen areas where drawn.

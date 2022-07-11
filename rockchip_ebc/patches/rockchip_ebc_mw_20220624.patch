@@ -2,7 +2,7 @@ From cb80d9f99f75ea1ed6c8c6b194910b6ae9574a07 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Mon, 30 May 2022 21:06:31 +0200
 Subject: [PATCH 01/39] [rockchip_ebc] when doing partial refreshes, wait for
- each frame to finish (i.e. wait for the irc from the epd controller) before
+ each frame to finish (i.e. wait for the irq from the epd controller) before
  starting to fill in the buffers for the next frame
 
 ---
@@ -16,7 +16,7 @@ index 285f43bc6d91..d7ed954e1618 100644
 @@ -580,11 +580,11 @@ static void rockchip_ebc_partial_refresh(struct rockchip_ebc *ebc,
  		dma_sync_single_for_device(dev, phase_handle,
  					   ctx->phase_size, DMA_TO_DEVICE);
- 
+
 -		if (frame) {
 -			if (!wait_for_completion_timeout(&ebc->display_end,
 -							 EBC_FRAME_TIMEOUT))
@@ -27,7 +27,7 @@ index 285f43bc6d91..d7ed954e1618 100644
 +		/* 					 EBC_FRAME_TIMEOUT)) */
 +		/* 		drm_err(drm, "Frame %d timed out!\n", frame); */
 +		/* } */
- 
+
  		if (list_empty(&areas))
  			break;
 @@ -597,6 +597,11 @@ static void rockchip_ebc_partial_refresh(struct rockchip_ebc *ebc,
@@ -41,8 +41,8 @@ index 285f43bc6d91..d7ed954e1618 100644
 +		}
  	}
  }
- 
--- 
+
+--
 2.30.2
 
 
@@ -66,7 +66,7 @@ index d7ed954e1618..b0dfc493c059 100644
  #include <linux/regmap.h>
  #include <linux/regulator/consumer.h>
 +#include <linux/dma-mapping.h>
- 
+
  #include <drm/drm_atomic.h>
  #include <drm/drm_atomic_helper.h>
 @@ -479,8 +480,8 @@ static void rockchip_ebc_blit_pixels(const struct rockchip_ebc_ctx *ctx,
@@ -83,7 +83,7 @@ index d7ed954e1618..b0dfc493c059 100644
 @@ -489,10 +490,18 @@ static void rockchip_ebc_partial_refresh(struct rockchip_ebc *ebc,
  	LIST_HEAD(areas);
  	u32 frame;
- 
+
 +	dma_addr_t next_handle = dma_map_single(dev, ctx->next, ctx->gray4_size, DMA_TO_DEVICE);
 +	dma_addr_t prev_handle = dma_map_single(dev, ctx->prev, ctx->gray4_size, DMA_TO_DEVICE);
 +
@@ -99,7 +99,7 @@ index d7ed954e1618..b0dfc493c059 100644
 +		dma_addr_t phase_handle = phase_handles[frame % 2];
  		bool sync_next = false;
  		bool sync_prev = false;
- 
+
 @@ -603,6 +612,10 @@ static void rockchip_ebc_partial_refresh(struct rockchip_ebc *ebc,
  				drm_err(drm, "Frame %d timed out!\n", frame);
  		}
@@ -109,9 +109,9 @@ index d7ed954e1618..b0dfc493c059 100644
 +	dma_unmap_single(dev, phase_handles[0], ctx->gray4_size, DMA_TO_DEVICE);
 +	dma_unmap_single(dev, phase_handles[1], ctx->gray4_size, DMA_TO_DEVICE);
  }
- 
+
  static void rockchip_ebc_refresh(struct rockchip_ebc *ebc,
--- 
+--
 2.30.2
 
 
@@ -144,16 +144,16 @@ index b0dfc493c059..4df73794281b 100644
  #include <linux/regulator/consumer.h>
 +#include <linux/sched.h>
  #include <linux/dma-mapping.h>
- 
+
  #include <drm/drm_atomic.h>
 @@ -760,12 +761,13 @@ static int rockchip_ebc_refresh_thread(void *data)
  			rockchip_ebc_refresh(ebc, ctx, true, DRM_EPD_WF_RESET);
  		}
- 
+
 -		while (!kthread_should_park()) {
 +		while ((!kthread_should_park()) && (!kthread_should_stop())) {
  			rockchip_ebc_refresh(ebc, ctx, false, default_waveform);
- 
+
  			set_current_state(TASK_IDLE);
 -			if (list_empty(&ctx->queue))
 +			if (list_empty(&ctx->queue) && (!kthread_should_stop()) && (!kthread_should_park())){
@@ -161,7 +161,7 @@ index b0dfc493c059..4df73794281b 100644
 +			}
  			__set_current_state(TASK_RUNNING);
  		}
- 
+
 @@ -775,8 +777,9 @@ static int rockchip_ebc_refresh_thread(void *data)
  		 */
  		memset(ctx->next, 0xff, ctx->gray4_size);
@@ -172,20 +172,20 @@ index b0dfc493c059..4df73794281b 100644
 +			kthread_parkme();
 +		}
  	}
- 
+
  	return 0;
 @@ -925,7 +928,7 @@ static void rockchip_ebc_crtc_atomic_enable(struct drm_crtc *crtc,
- 
+
  	crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
  	if (crtc_state->mode_changed)
 -		kthread_unpark(ebc->refresh_thread);
 +			kthread_unpark(ebc->refresh_thread);
  }
- 
+
  static void rockchip_ebc_crtc_atomic_disable(struct drm_crtc *crtc,
 @@ -935,8 +938,11 @@ static void rockchip_ebc_crtc_atomic_disable(struct drm_crtc *crtc,
  	struct drm_crtc_state *crtc_state;
- 
+
  	crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
 -	if (crtc_state->mode_changed)
 -		kthread_park(ebc->refresh_thread);
@@ -195,28 +195,28 @@ index b0dfc493c059..4df73794281b 100644
 +		}
 +	}
  }
- 
+
  static const struct drm_crtc_helper_funcs rockchip_ebc_crtc_helper_funcs = {
 @@ -1573,9 +1579,8 @@ static int rockchip_ebc_remove(struct platform_device *pdev)
  	struct device *dev = &pdev->dev;
- 
+
  	drm_dev_unregister(&ebc->drm);
 -	drm_atomic_helper_shutdown(&ebc->drm);
 -
  	kthread_stop(ebc->refresh_thread);
 +	drm_atomic_helper_shutdown(&ebc->drm);
- 
+
  	pm_runtime_disable(dev);
  	if (!pm_runtime_status_suspended(dev))
 @@ -1589,6 +1594,7 @@ static void rockchip_ebc_shutdown(struct platform_device *pdev)
  	struct rockchip_ebc *ebc = platform_get_drvdata(pdev);
  	struct device *dev = &pdev->dev;
- 
+
 +	kthread_stop(ebc->refresh_thread);
  	drm_atomic_helper_shutdown(&ebc->drm);
- 
+
  	if (!pm_runtime_status_suspended(dev))
--- 
+--
 2.30.2
 
 
@@ -237,7 +237,7 @@ index 4df73794281b..d8af43fe9f42 100644
 @@ -506,6 +506,9 @@ static void rockchip_ebc_partial_refresh(struct rockchip_ebc *ebc,
  		bool sync_next = false;
  		bool sync_prev = false;
- 
+
 +		// now the CPU is allowed to change the phase buffer
 +		dma_sync_single_for_cpu(dev, phase_handle, phase_size, DMA_TO_DEVICE);
 +
@@ -245,7 +245,7 @@ index 4df73794281b..d8af43fe9f42 100644
  		spin_lock(&ctx->queue_lock);
  		list_splice_tail_init(&ctx->queue, &areas);
 @@ -533,6 +536,7 @@ static void rockchip_ebc_partial_refresh(struct rockchip_ebc *ebc,
- 
+
  			/* Copy ctx->final to ctx->next on the first frame. */
  			if (frame_delta == 0) {
 +				dma_sync_single_for_cpu(dev, next_handle, gray4_size, DMA_TO_DEVICE);
@@ -260,7 +260,7 @@ index 4df73794281b..d8af43fe9f42 100644
  				rockchip_ebc_blit_pixels(ctx, ctx->prev,
  							 ctx->next,
  							 &area->clip);
--- 
+--
 2.30.2
 
 
@@ -279,14 +279,14 @@ index d8af43fe9f42..6a0f125040df 100644
 +++ b/drivers/gpu/drm/rockchip/rockchip_ebc.c
 @@ -507,7 +507,7 @@ static void rockchip_ebc_partial_refresh(struct rockchip_ebc *ebc,
  		bool sync_prev = false;
- 
+
  		// now the CPU is allowed to change the phase buffer
 -		dma_sync_single_for_cpu(dev, phase_handle, phase_size, DMA_TO_DEVICE);
 +		dma_sync_single_for_cpu(dev, phase_handle, ctx->phase_size, DMA_TO_DEVICE);
- 
+
  		/* Move the queued damage areas to the local list. */
  		spin_lock(&ctx->queue_lock);
--- 
+--
 2.30.2
 
 
@@ -306,7 +306,7 @@ index 6a0f125040df..87deb8098d2d 100644
 +++ b/drivers/gpu/drm/rockchip/rockchip_ebc.c
 @@ -308,15 +308,17 @@ to_ebc_crtc_state(struct drm_crtc_state *crtc_state)
  }
- 
+
  static void rockchip_ebc_global_refresh(struct rockchip_ebc *ebc,
 -					const struct rockchip_ebc_ctx *ctx)
 +					struct rockchip_ebc_ctx *ctx,
@@ -317,17 +317,17 @@ index 6a0f125040df..87deb8098d2d 100644
  	struct drm_device *drm = &ebc->drm;
  	u32 gray4_size = ctx->gray4_size;
  	struct device *dev = drm->dev;
- 
+
 -	dma_sync_single_for_device(dev, virt_to_phys(ctx->next),
  				   gray4_size, DMA_TO_DEVICE);
 -	dma_sync_single_for_device(dev, virt_to_phys(ctx->prev),
 +	dma_sync_single_for_device(dev, prev_handle,
  				   gray4_size, DMA_TO_DEVICE);
- 
+
  	reinit_completion(&ebc->display_end);
 @@ -479,10 +481,11 @@ static void rockchip_ebc_blit_pixels(const struct rockchip_ebc_ctx *ctx,
  }
- 
+
  static void rockchip_ebc_partial_refresh(struct rockchip_ebc *ebc,
 -					 struct rockchip_ebc_ctx *ctx)
 +					 struct rockchip_ebc_ctx *ctx,
@@ -343,7 +343,7 @@ index 6a0f125040df..87deb8098d2d 100644
 @@ -491,9 +494,6 @@ static void rockchip_ebc_partial_refresh(struct rockchip_ebc *ebc,
  	LIST_HEAD(areas);
  	u32 frame;
- 
+
 -	dma_addr_t next_handle = dma_map_single(dev, ctx->next, ctx->gray4_size, DMA_TO_DEVICE);
 -	dma_addr_t prev_handle = dma_map_single(dev, ctx->prev, ctx->gray4_size, DMA_TO_DEVICE);
 -
@@ -373,13 +373,13 @@ index 6a0f125040df..87deb8098d2d 100644
  	int ret, temperature;
 +	dma_addr_t next_handle;
 +	dma_addr_t prev_handle;
- 
+
  	/* Resume asynchronously while preparing to refresh. */
  	ret = pm_runtime_get(dev);
 @@ -700,15 +699,21 @@ static void rockchip_ebc_refresh(struct rockchip_ebc *ebc,
  			   EBC_DSP_CTRL_DSP_LUT_MODE,
  			   dsp_ctrl);
- 
+
 +	next_handle = dma_map_single(dev, ctx->next, ctx->gray4_size, DMA_TO_DEVICE);
 +	prev_handle = dma_map_single(dev, ctx->prev, ctx->gray4_size, DMA_TO_DEVICE);
 +
@@ -389,7 +389,7 @@ index 6a0f125040df..87deb8098d2d 100644
  	regmap_write(ebc->regmap, EBC_WIN_MST1,
 -		     virt_to_phys(ctx->prev));
 +		     prev_handle);
- 
+
  	if (global_refresh)
 -		rockchip_ebc_global_refresh(ebc, ctx);
 +		rockchip_ebc_global_refresh(ebc, ctx, next_handle, prev_handle);
@@ -399,10 +399,10 @@ index 6a0f125040df..87deb8098d2d 100644
 +
 +	dma_unmap_single(dev, next_handle, ctx->gray4_size, DMA_TO_DEVICE);
 +	dma_unmap_single(dev, prev_handle, ctx->gray4_size, DMA_TO_DEVICE);
- 
+
  	/* Drive the output pins low once the refresh is complete. */
  	regmap_write(ebc->regmap, EBC_DSP_START,
--- 
+--
 2.30.2
 
 
@@ -422,12 +422,12 @@ index 87deb8098d2d..0681504fc8d7 100644
 @@ -317,6 +317,7 @@ static void rockchip_ebc_global_refresh(struct rockchip_ebc *ebc,
  	u32 gray4_size = ctx->gray4_size;
  	struct device *dev = drm->dev;
- 
+
 +	dma_sync_single_for_device(dev, next_handle,
  				   gray4_size, DMA_TO_DEVICE);
  	dma_sync_single_for_device(dev, prev_handle,
  				   gray4_size, DMA_TO_DEVICE);
--- 
+--
 2.30.2
 
 
@@ -449,7 +449,7 @@ index 0681504fc8d7..470638f59d43 100644
 @@ -317,6 +317,15 @@ static void rockchip_ebc_global_refresh(struct rockchip_ebc *ebc,
  	u32 gray4_size = ctx->gray4_size;
  	struct device *dev = drm->dev;
- 
+
 +	struct rockchip_ebc_area *area, *next_area;
 +	LIST_HEAD(areas);
 +
@@ -493,7 +493,7 @@ index 0681504fc8d7..470638f59d43 100644
  		rockchip_ebc_refresh(ebc, ctx, true, DRM_EPD_WF_GC16);
  		if (!kthread_should_stop()){
  			kthread_parkme();
--- 
+--
 2.30.2
 
 
@@ -515,7 +515,7 @@ index 470638f59d43..0681504fc8d7 100644
 @@ -317,15 +317,6 @@ static void rockchip_ebc_global_refresh(struct rockchip_ebc *ebc,
  	u32 gray4_size = ctx->gray4_size;
  	struct device *dev = drm->dev;
- 
+
 -	struct rockchip_ebc_area *area, *next_area;
 -	LIST_HEAD(areas);
 -
@@ -559,7 +559,7 @@ index 470638f59d43..0681504fc8d7 100644
  		rockchip_ebc_refresh(ebc, ctx, true, DRM_EPD_WF_GC16);
  		if (!kthread_should_stop()){
  			kthread_parkme();
--- 
+--
 2.30.2
 
 
@@ -581,7 +581,7 @@ index 0681504fc8d7..41852c23802e 100644
 @@ -317,6 +317,15 @@ static void rockchip_ebc_global_refresh(struct rockchip_ebc *ebc,
  	u32 gray4_size = ctx->gray4_size;
  	struct device *dev = drm->dev;
- 
+
 +	struct rockchip_ebc_area *area, *next_area;
 +	LIST_HEAD(areas);
 +
@@ -616,7 +616,7 @@ index 0681504fc8d7..41852c23802e 100644
  		/* NOTE: In direct mode, the phase buffers are repurposed for
  		 * source driver polarity data, where the no-op value is 0. */
  		memset(ctx->phase[0], direct_mode ? 0 : 0xff, ctx->phase_size);
--- 
+--
 2.30.2
 
 
@@ -642,19 +642,19 @@ index 41852c23802e..b1c8f967350b 100644
 +	// should this go into the ctx?
 +	bool do_one_full_refresh;
  };
- 
+
  static int default_waveform = DRM_EPD_WF_GC16;
 @@ -744,6 +747,7 @@ static int rockchip_ebc_refresh_thread(void *data)
  {
  	struct rockchip_ebc *ebc = data;
  	struct rockchip_ebc_ctx *ctx;
 +	bool one_full_refresh;
- 
+
  	while (!kthread_should_stop()) {
  		/* The context will change each time the thread is unparked. */
 @@ -790,7 +794,18 @@ static int rockchip_ebc_refresh_thread(void *data)
  		}
- 
+
  		while ((!kthread_should_park()) && (!kthread_should_stop())) {
 -			rockchip_ebc_refresh(ebc, ctx, false, default_waveform);
 +			spin_lock(&ebc->refresh_once_lock);
@@ -669,11 +669,11 @@ index 41852c23802e..b1c8f967350b 100644
 +			} else {
 +				rockchip_ebc_refresh(ebc, ctx, false, default_waveform);
 +			}
- 
+
  			set_current_state(TASK_IDLE);
  			if (list_empty(&ctx->queue) && (!kthread_should_stop()) && (!kthread_should_park())){
 @@ -1519,6 +1534,9 @@ static int rockchip_ebc_probe(struct platform_device *pdev)
- 
+
  	ebc = devm_drm_dev_alloc(dev, &rockchip_ebc_drm_driver,
  				 struct rockchip_ebc, drm);
 +
@@ -681,8 +681,8 @@ index 41852c23802e..b1c8f967350b 100644
 +
  	if (IS_ERR(ebc))
  		return PTR_ERR(ebc);
- 
--- 
+
+--
 2.30.2
 
 
@@ -708,7 +708,7 @@ index b1c8f967350b..edf98b048a07 100644
  #include <linux/sched.h>
  #include <linux/dma-mapping.h>
 +#include <linux/firmware.h>
- 
+
  #include <drm/drm_atomic.h>
  #include <drm/drm_atomic_helper.h>
 @@ -154,6 +155,9 @@ struct rockchip_ebc {
@@ -735,13 +735,13 @@ index b1c8f967350b..edf98b048a07 100644
  	struct drm_bridge *bridge;
  	int ret;
 +	const struct firmware * default_offscreen;
- 
+
  	ret = drmm_epd_lut_file_init(drm, &ebc->lut_file, "rockchip/ebc.wbf");
  	if (ret)
 @@ -1392,6 +1397,24 @@ static int rockchip_ebc_drm_init(struct rockchip_ebc *ebc)
- 
+
  	drm_fbdev_generic_setup(drm, 0);
- 
+
 +	// check if there is a default off-screen
 +	if (!request_firmware(&default_offscreen, "rockchip/rockchip_ebc_default_screen.bin", drm->dev))
 +	{
@@ -762,8 +762,8 @@ index b1c8f967350b..edf98b048a07 100644
 +
  	return 0;
  }
- 
--- 
+
+--
 2.30.2
 
 
@@ -793,7 +793,7 @@ index edf98b048a07..69ef34e86ba7 100644
 @@ -183,6 +183,14 @@ static bool skip_reset = false;
  module_param(skip_reset, bool, 0444);
  MODULE_PARM_DESC(skip_reset, "skip the initial display reset");
- 
+
 +static bool auto_refresh = false;
 +module_param(auto_refresh, bool, S_IRUGO|S_IWUSR);
 +MODULE_PARM_DESC(auto_refresh, "auto refresh the screen based on partial refreshed area");
@@ -803,7 +803,7 @@ index edf98b048a07..69ef34e86ba7 100644
 +MODULE_PARM_DESC(refresh_threshold, "refresh threshold in screen area multiples");
 +
  DEFINE_DRM_GEM_FOPS(rockchip_ebc_fops);
- 
+
  static const struct drm_driver rockchip_ebc_drm_driver = {
 @@ -243,6 +251,7 @@ struct rockchip_ebc_ctx {
  	u32				gray4_size;
@@ -811,29 +811,29 @@ index edf98b048a07..69ef34e86ba7 100644
  	u32				phase_size;
 +	u64 area_count;
  };
- 
+
  static void rockchip_ebc_ctx_free(struct rockchip_ebc_ctx *ctx)
 @@ -288,6 +297,10 @@ static struct rockchip_ebc_ctx *rockchip_ebc_ctx_alloc(u32 width, u32 height)
  	ctx->phase_pitch = width;
  	ctx->phase_size  = phase_size;
- 
+
 +	// we keep track of the updated area and use this value to trigger global
 +	// refreshes if auto_refresh is enabled
 +	ctx->area_count = 0;
 +
  	return ctx;
  }
- 
+
 @@ -516,6 +529,7 @@ static void rockchip_ebc_partial_refresh(struct rockchip_ebc *ebc,
  	struct device *dev = drm->dev;
  	LIST_HEAD(areas);
  	u32 frame;
 +	u64 local_area_count = 0;
- 
+
  	dma_addr_t phase_handles[2];
  	phase_handles[0] = dma_map_single(dev, ctx->phase[0], ctx->gray4_size, DMA_TO_DEVICE);
 @@ -558,6 +572,9 @@ static void rockchip_ebc_partial_refresh(struct rockchip_ebc *ebc,
- 
+
  			/* Copy ctx->final to ctx->next on the first frame. */
  			if (frame_delta == 0) {
 +				local_area_count += (u64) (
@@ -849,20 +849,20 @@ index edf98b048a07..69ef34e86ba7 100644
 +	/* printk(KERN_INFO "loca area count: %llu\n", local_area_count); */
 +	ctx->area_count += local_area_count;
  }
- 
+
  static void rockchip_ebc_refresh(struct rockchip_ebc *ebc,
 @@ -655,6 +674,7 @@ static void rockchip_ebc_refresh(struct rockchip_ebc *ebc,
  	int ret, temperature;
  	dma_addr_t next_handle;
  	dma_addr_t prev_handle;
 +	int one_screen_area = 1314144;
- 
+
  	/* Resume asynchronously while preparing to refresh. */
  	ret = pm_runtime_get(dev);
 @@ -738,6 +758,19 @@ static void rockchip_ebc_refresh(struct rockchip_ebc *ebc,
  	dma_unmap_single(dev, next_handle, ctx->gray4_size, DMA_TO_DEVICE);
  	dma_unmap_single(dev, prev_handle, ctx->gray4_size, DMA_TO_DEVICE);
- 
+
 +	// do we need a full refresh
 +	if (auto_refresh){
 +		if (ctx->area_count >= refresh_threshold * one_screen_area){
@@ -879,7 +879,7 @@ index edf98b048a07..69ef34e86ba7 100644
  	/* Drive the output pins low once the refresh is complete. */
  	regmap_write(ebc->regmap, EBC_DSP_START,
  		     ebc->dsp_start |
--- 
+--
 2.30.2
 
 
@@ -920,20 +920,20 @@ index 69ef34e86ba7..9a0a238829bb 100644
  #include <linux/dma-mapping.h>
 +#include <linux/uaccess.h>
  #include <linux/firmware.h>
- 
+
  #include <drm/drm_atomic.h>
 @@ -29,6 +30,7 @@
  #include <drm/drm_gem_shmem_helper.h>
  #include <drm/drm_plane_helper.h>
  #include <drm/drm_simple_kms_helper.h>
 +#include <drm/rockchip_ebc_drm.h>
- 
+
  #define EBC_DSP_START			0x0000
  #define EBC_DSP_START_DSP_OUT_LOW		BIT(31)
 @@ -193,6 +195,43 @@ MODULE_PARM_DESC(refresh_threshold, "refresh threshold in screen area multiples"
- 
+
  DEFINE_DRM_GEM_FOPS(rockchip_ebc_fops);
- 
+
 +static int ioctl_trigger_global_refresh(struct drm_device *dev, void *data,
 +		struct drm_file *file_priv)
 +{
@@ -981,7 +981,7 @@ index 69ef34e86ba7..9a0a238829bb 100644
 +	.ioctls = ioctls,
 +	.num_ioctls = DRM_ROCKCHIP_EBC_NUM_IOCTLS,
  };
- 
+
  static const struct drm_mode_config_funcs rockchip_ebc_mode_config_funcs = {
 diff --git a/include/uapi/drm/rockchip_ebc_drm.h b/include/uapi/drm/rockchip_ebc_drm.h
 new file mode 100644
@@ -1014,7 +1014,7 @@ index 000000000000..befa62a68be0
 +#define DRM_IOCTL_ROCKCHIP_EBC_OFF_SCREEN	DRM_IOWR(DRM_COMMAND_BASE + 0x01, struct drm_rockchip_ebc_off_screen)
 +
 +#endif /* __ROCKCHIP_EBC_DRM_H__*/
--- 
+--
 2.30.2
 
 
@@ -1054,7 +1054,7 @@ index 9a0a238829bb..6f7bbe0bd70f 100644
 +	// by default, begin now
  	u32 frame_begin = current_frame;
 +	/* printk(KERN_INFO "scheduling area: %i-%i %i-%i\n", area->clip.x1, area->clip.x2, area->clip.y1, area->clip.y2); */
- 
+
  	list_for_each_entry(other, areas, list) {
  		struct drm_rect intersection;
 @@ -437,11 +442,124 @@ static bool rockchip_ebc_schedule_area(struct list_head *areas,
@@ -1062,7 +1062,7 @@ index 9a0a238829bb..6f7bbe0bd70f 100644
  		if (!drm_rect_intersect(&intersection, &other->clip))
  			continue;
 +		// we got here, so there is a collision
- 
+
  		/* If the other area already started, wait until it finishes. */
  		if (other->frame_begin < current_frame) {
  			frame_begin = other_end;
@@ -1181,7 +1181,7 @@ index 9a0a238829bb..6f7bbe0bd70f 100644
 +			return false;
 +			/* continue; */
  		}
- 
+
  		/*
 @@ -538,8 +656,18 @@ static void rockchip_ebc_blit_pixels(const struct rockchip_ebc_ctx *ctx,
  				     u8 *dst, const u8 *src,
@@ -1204,7 +1204,7 @@ index 9a0a238829bb..6f7bbe0bd70f 100644
  	const u8 *src_line;
 @@ -550,8 +678,29 @@ static void rockchip_ebc_blit_pixels(const struct rockchip_ebc_ctx *ctx,
  	src_line = src + clip->y1 * pitch + x1_bytes;
- 
+
  	for (y = clip->y1; y < clip->y2; y++) {
 +		if (start_x_is_odd)
 +			// keep only lower bit to restore it after the blitting
@@ -1217,7 +1217,7 @@ index 9a0a238829bb..6f7bbe0bd70f 100644
 +		}
 +
  		memcpy(dst_line, src_line, width);
- 
+
 +		if (start_x_is_odd){
 +			// write back the first 4 saved bits
 +			*dst_line = first_odd | (*dst_line & 0b11110000);
@@ -1237,7 +1237,7 @@ index 9a0a238829bb..6f7bbe0bd70f 100644
  		bool sync_next = false;
  		bool sync_prev = false;
 +		int split_counter = 0;
- 
+
  		// now the CPU is allowed to change the phase buffer
  		dma_sync_single_for_cpu(dev, phase_handle, ctx->phase_size, DMA_TO_DEVICE);
 @@ -601,18 +751,20 @@ static void rockchip_ebc_partial_refresh(struct rockchip_ebc *ebc,
@@ -1250,12 +1250,12 @@ index 9a0a238829bb..6f7bbe0bd70f 100644
  				kfree(area);
  				continue;
  			}
- 
+
 +			// we wait a little bit longer to start
  			frame_delta = frame - area->frame_begin;
  			if (frame_delta < 0)
  				continue;
- 
+
  			/* Copy ctx->final to ctx->next on the first frame. */
  			if (frame_delta == 0) {
 +				printk(KERN_INFO "rockchip partial refresh starting area on frame %i (%i/%i %i/%i)\n", frame, area->clip.x1, area->clip.x2, area->clip.y1, area->clip.y2);
@@ -1265,21 +1265,21 @@ index 9a0a238829bb..6f7bbe0bd70f 100644
 @@ -1212,9 +1364,13 @@ static bool rockchip_ebc_blit_fb(const struct rockchip_ebc_ctx *ctx,
  	int delta_x;
  	void *dst;
- 
+
 +	bool start_x_is_odd = src_clip->x1 & 1;
 +	bool end_x_is_odd = src_clip->x2 & 1;
 +
  	delta_x = panel_reflection ? -1 : 1;
  	start_x = panel_reflection ? src_clip->x2 - 1 : src_clip->x1;
- 
+
 +	// I think this also works if dst_clip->x1 is odd
  	dst = ctx->final + dst_clip->y1 * dst_pitch + dst_clip->x1 / 2;
  	src = vaddr + src_clip->y1 * src_pitch + start_x * fb->format->cpp[0];
- 
+
 @@ -1236,7 +1392,19 @@ static bool rockchip_ebc_blit_fb(const struct rockchip_ebc_ctx *ctx,
  			/* Unbias the value for rounding to 4 bits. */
  			rgb0 += 0x07000000U; rgb1 += 0x07000000U;
- 
+
 -			gray = rgb0 >> 28 | rgb1 >> 28 << 4;
 +			rgb0 >>= 28;
 +			rgb1 >>= 28;
@@ -1297,7 +1297,7 @@ index 9a0a238829bb..6f7bbe0bd70f 100644
  			changed |= gray ^ *dbuf;
  			*dbuf++ = gray;
  		}
--- 
+--
 2.30.2
 
 
@@ -1319,24 +1319,24 @@ index 6f7bbe0bd70f..ae8f6727d05c 100644
 @@ -193,6 +193,10 @@ static int refresh_threshold = 20;
  module_param(refresh_threshold, int, S_IRUGO|S_IWUSR);
  MODULE_PARM_DESC(refresh_threshold, "refresh threshold in screen area multiples");
- 
+
 +static int split_area_limit = 12;
 +module_param(split_area_limit, int, S_IRUGO|S_IWUSR);
 +MODULE_PARM_DESC(split_area_limit, "how many areas to split in each scheduling call");
 +
  DEFINE_DRM_GEM_FOPS(rockchip_ebc_fops);
- 
+
  static int ioctl_trigger_global_refresh(struct drm_device *dev, void *data,
 @@ -488,7 +492,7 @@ static bool rockchip_ebc_schedule_area(struct list_head *areas,
- 
+
  			// we do not want to overhelm the refresh thread and limit us to a
  			// certain number of splits. The rest needs to wait
 -			if (*split_counter >= 6)
 +			if (*split_counter >= split_area_limit)
  				continue;
- 
+
  			// we need four new rokchip_ebc_area entries that we splice into
--- 
+--
 2.30.2
 
 
@@ -1355,14 +1355,14 @@ index ae8f6727d05c..4d6a799d7bb4 100644
 +++ b/drivers/gpu/drm/rockchip/rockchip_ebc.c
 @@ -206,7 +206,7 @@ static int ioctl_trigger_global_refresh(struct drm_device *dev, void *data,
  	struct rockchip_ebc *ebc = dev_get_drvdata(dev->dev);
- 
+
  	if (args->trigger_global_refresh){
 -		printk(KERN_INFO "rockchip_ebc: ioctl would trigger full refresh \n");
 +		printk(KERN_INFO "rockchip_ebc: ioctl triggered full refresh \n");
  		spin_lock(&ebc->refresh_once_lock);
  		ebc->do_one_full_refresh = true;
  		spin_unlock(&ebc->refresh_once_lock);
--- 
+--
 2.30.2
 
 
@@ -1386,14 +1386,14 @@ index 4d6a799d7bb4..4eb6e1e0f261 100644
 -			item2->clip.y1 = ycenter + 1;
 +			item2->clip.y1 = ycenter;
  			item2->clip.y2 = ymax;
- 
+
  			item3->frame_begin = EBC_FRAME_PENDING;
 -			item3->clip.x1 = xcenter + 1;
 +			item3->clip.x1 = xcenter;
  			item3->clip.x2 = xmax;
  			item3->clip.y1 = ymin;
  			item3->clip.y2 = ycenter;
- 
+
  			item4->frame_begin = EBC_FRAME_PENDING;
 -			item4->clip.x1 = xcenter + 1;
 +			item4->clip.x1 = xcenter;
@@ -1401,9 +1401,9 @@ index 4d6a799d7bb4..4eb6e1e0f261 100644
 -			item4->clip.y1 = ycenter + 1;
 +			item4->clip.y1 = ycenter;
  			item4->clip.y2 = ymax;
- 
+
  			*split_counter++;
--- 
+--
 2.30.2
 
 
@@ -1423,13 +1423,13 @@ index 4eb6e1e0f261..7e1558403973 100644
 @@ -559,7 +559,7 @@ static bool rockchip_ebc_schedule_area(struct list_head *areas,
  			item4->clip.y1 = ycenter;
  			item4->clip.y2 = ymax;
- 
+
 -			*split_counter++;
 +			(*split_counter)++;
- 
+
  			// let the outer loop delete this area
  			return false;
--- 
+--
 2.30.2
 
 
@@ -1454,16 +1454,16 @@ index 7e1558403973..973d13ffd0d3 100644
 @@ -576,8 +576,9 @@ static bool rockchip_ebc_schedule_area(struct list_head *areas,
  			return false;
  		}
- 
+
 -		/* Otherwise, start at the same time as the other area. */
 -		frame_begin = other->frame_begin;
 +		/* Otherwise, the earliest start is the same time as that of the other
 +		 * area. */
 +		frame_begin = max(frame_begin, other->frame_begin);
  	}
- 
+
  	area->frame_begin = frame_begin;
--- 
+--
 2.30.2
 
 
@@ -1506,13 +1506,13 @@ index 973d13ffd0d3..3ef899c4779f 100644
  		spin_lock(&ctx->queue_lock);
  		list_splice_tail_init(&ctx->queue, &areas);
 -		spin_unlock(&ctx->queue_lock);
- 
+
  		list_for_each_entry_safe(area, next_area, &areas, list) {
  			s32 frame_delta;
 @@ -832,6 +831,8 @@ static void rockchip_ebc_partial_refresh(struct rockchip_ebc *ebc,
  		dma_sync_single_for_device(dev, phase_handle,
  					   ctx->phase_size, DMA_TO_DEVICE);
- 
+
 +		spin_unlock(&ctx->queue_lock);
 +
  		/* if (frame) { */
@@ -1521,7 +1521,7 @@ index 973d13ffd0d3..3ef899c4779f 100644
 @@ -1448,6 +1449,7 @@ static void rockchip_ebc_plane_atomic_update(struct drm_plane *plane,
  	ebc_plane_state = to_ebc_plane_state(plane_state);
  	vaddr = ebc_plane_state->base.data[0].vaddr;
- 
+
 +	spin_lock(&ctx->queue_lock);
  	list_for_each_entry_safe(area, next_area, &ebc_plane_state->areas, list) {
  		struct drm_rect *dst_clip = &area->clip;
@@ -1529,18 +1529,18 @@ index 973d13ffd0d3..3ef899c4779f 100644
 @@ -1493,10 +1495,11 @@ static void rockchip_ebc_plane_atomic_update(struct drm_plane *plane,
  		}
  	}
- 
+
 -	if (list_empty(&ebc_plane_state->areas))
 +	if (list_empty(&ebc_plane_state->areas)){
 +		spin_unlock(&ctx->queue_lock);
  		return;
 +	}
- 
+
 -	spin_lock(&ctx->queue_lock);
  	list_splice_tail_init(&ebc_plane_state->areas, &ctx->queue);
  	spin_unlock(&ctx->queue_lock);
- 
--- 
+
+--
 2.30.2
 
 
@@ -1559,7 +1559,7 @@ index 3ef899c4779f..819e4bf28595 100644
 +++ b/drivers/gpu/drm/rockchip/rockchip_ebc.c
 @@ -206,7 +206,6 @@ static int ioctl_trigger_global_refresh(struct drm_device *dev, void *data,
  	struct rockchip_ebc *ebc = dev_get_drvdata(dev->dev);
- 
+
  	if (args->trigger_global_refresh){
 -		printk(KERN_INFO "rockchip_ebc: ioctl triggered full refresh \n");
  		spin_lock(&ebc->refresh_once_lock);
@@ -1571,11 +1571,11 @@ index 3ef899c4779f..819e4bf28595 100644
  	u32 frame_begin = current_frame;
 -	/* printk(KERN_INFO "scheduling area: %i-%i %i-%i\n", area->clip.x1, area->clip.x2, area->clip.y1, area->clip.y2); */
 +	//printk(KERN_INFO "scheduling area: %i-%i %i-%i (current frame: %i)\n", area->clip.x1, area->clip.x2, area->clip.y1, area->clip.y2, current_frame);
- 
+
  	list_for_each_entry(other, areas, list) {
  		struct drm_rect intersection;
 @@ -768,7 +767,7 @@ static void rockchip_ebc_partial_refresh(struct rockchip_ebc *ebc,
- 
+
  			/* Copy ctx->final to ctx->next on the first frame. */
  			if (frame_delta == 0) {
 -				printk(KERN_INFO "rockchip partial refresh starting area on frame %i (%i/%i %i/%i)\n", frame, area->clip.x1, area->clip.x2, area->clip.y1, area->clip.y2);
@@ -1586,7 +1586,7 @@ index 3ef899c4779f..819e4bf28595 100644
 @@ -817,6 +816,7 @@ static void rockchip_ebc_partial_refresh(struct rockchip_ebc *ebc,
  				drm_dbg(drm, "area %p (" DRM_RECT_FMT ") finished on %u\n",
  					area, DRM_RECT_ARG(&area->clip), frame);
- 
+
 +				//printk(KERN_INFO "rockchip partial refresh stopping area on frame %i (%i/%i %i/%i)\n", frame, area->clip.x1, area->clip.x2, area->clip.y1, area->clip.y2);
  				list_del(&area->list);
  				kfree(area);
@@ -1598,7 +1598,7 @@ index 3ef899c4779f..819e4bf28595 100644
 -	/* printk(KERN_INFO "loca area count: %llu\n", local_area_count); */
  	ctx->area_count += local_area_count;
  }
- 
+
 @@ -960,7 +959,6 @@ static void rockchip_ebc_refresh(struct rockchip_ebc *ebc,
  	// do we need a full refresh
  	if (auto_refresh){
@@ -1623,7 +1623,7 @@ index 3ef899c4779f..819e4bf28595 100644
  		// fill the off-screen with some values
  		memset(ebc->off_screen, 0xff, 1314144);
  		/* memset(ebc->off_screen, 0x00, 556144); */
--- 
+--
 2.30.2
 
 
@@ -1647,7 +1647,7 @@ index 819e4bf28595..52bf5d11ec57 100644
 @@ -415,11 +415,157 @@ static void rockchip_ebc_global_refresh(struct rockchip_ebc *ebc,
  	memcpy(ctx->prev, ctx->next, gray4_size);
  }
- 
+
 +/*
 + * Returns true if the area was split, false otherwise
 + */
@@ -1806,7 +1806,7 @@ index 819e4bf28595..52bf5d11ec57 100644
 @@ -460,109 +606,13 @@ static bool rockchip_ebc_schedule_area(struct list_head *areas,
  			if (drm_rect_equals(&area->clip, &intersection))
  				continue;
- 
+
 -			// for now, min size if 2x2
 -			if ((area->clip.x2 - area->clip.x1 < 2) | (area->clip.y2 - area->clip.y1 < 2))
 -				continue;
@@ -1916,7 +1916,7 @@ index 819e4bf28595..52bf5d11ec57 100644
 -			return false;
 -			/* continue; */
  		}
- 
+
  		/*
 @@ -578,6 +628,15 @@ static bool rockchip_ebc_schedule_area(struct list_head *areas,
  		/* Otherwise, the earliest start is the same time as that of the other
@@ -1932,7 +1932,7 @@ index 819e4bf28595..52bf5d11ec57 100644
 +			continue;
 +		}
  	}
- 
+
  	area->frame_begin = frame_begin;
 @@ -754,7 +813,7 @@ static void rockchip_ebc_partial_refresh(struct rockchip_ebc *ebc,
  			 */
@@ -1943,7 +1943,7 @@ index 819e4bf28595..52bf5d11ec57 100644
  				list_del(&area->list);
  				kfree(area);
  				continue;
--- 
+--
 2.30.2
 
 
@@ -1965,10 +1965,10 @@ index 52bf5d11ec57..5d42b45abb5b 100644
  		if (!drm_rect_intersect(&intersection, &other->clip))
  			continue;
 -		// we got here, so there is a collision
- 
+
  		/* If the other area already started, wait until it finishes. */
  		if (other->frame_begin < current_frame) {
--- 
+--
 2.30.2
 
 
@@ -1987,15 +1987,15 @@ index 5d42b45abb5b..7f5fe7252ac4 100644
 --- a/drivers/gpu/drm/rockchip/rockchip_ebc.c
 +++ b/drivers/gpu/drm/rockchip/rockchip_ebc.c
 @@ -594,7 +594,7 @@ static bool rockchip_ebc_schedule_area(struct list_head *areas,
- 
+
  		/* If the other area already started, wait until it finishes. */
  		if (other->frame_begin < current_frame) {
 -			frame_begin = other_end;
 +			frame_begin = max(frame_begin, other_end);
- 
+
  			// so here we would optimally want to split the new area into three
  			// parts that do not overlap with the already-started area, and one
--- 
+--
 2.30.2
 
 
@@ -2015,15 +2015,15 @@ index 7f5fe7252ac4..974e9d23c648 100644
 @@ -624,8 +624,8 @@ static bool rockchip_ebc_schedule_area(struct list_head *areas,
  			return false;
  		}
- 
+
 -		/* Otherwise, the earliest start is the same time as that of the other
 -		 * area. */
 +		/* They do overlap but are are not equal and both not started yet, so
 +		 * they can potentially start together */
  		frame_begin = max(frame_begin, other->frame_begin);
- 
+
  		// try to split, otherwise continue
--- 
+--
 2.30.2
 
 
@@ -2051,10 +2051,10 @@ index 974e9d23c648..97173aeed53c 100644
  							 &area->clip);
  				sync_prev = true;
 +				sync_prev = true;
- 
+
  				drm_dbg(drm, "area %p (" DRM_RECT_FMT ") finished on %u\n",
  					area, DRM_RECT_ARG(&area->clip), frame);
--- 
+--
 2.30.2
 
 
@@ -2088,29 +2088,29 @@ index 97173aeed53c..4baefc8b5496 100644
 @@ -1428,13 +1431,9 @@ static bool rockchip_ebc_blit_fb(const struct rockchip_ebc_ctx *ctx,
  	int delta_x;
  	void *dst;
- 
+
 -	bool start_x_is_odd = src_clip->x1 & 1;
 -	bool end_x_is_odd = src_clip->x2 & 1;
 -
  	delta_x = panel_reflection ? -1 : 1;
  	start_x = panel_reflection ? src_clip->x2 - 1 : src_clip->x1;
- 
+
 -	// I think this also works if dst_clip->x1 is odd
  	dst = ctx->final + dst_clip->y1 * dst_pitch + dst_clip->x1 / 2;
  	src = vaddr + src_clip->y1 * src_pitch + start_x * fb->format->cpp[0];
- 
+
 @@ -1445,6 +1444,7 @@ static bool rockchip_ebc_blit_fb(const struct rockchip_ebc_ctx *ctx,
  		for (x = src_clip->x1; x < src_clip->x2; x += 2) {
  			u32 rgb0, rgb1;
  			u8 gray;
 +			u8 tmp_pixel;
- 
+
  			rgb0 = *sbuf; sbuf += delta_x;
  			rgb1 = *sbuf; sbuf += delta_x;
 @@ -1459,13 +1459,21 @@ static bool rockchip_ebc_blit_fb(const struct rockchip_ebc_ctx *ctx,
  			rgb0 >>= 28;
  			rgb1 >>= 28;
- 
+
 -			if (x == src_clip->x1 && start_x_is_odd) {
 +			// Does this account for panel reflection?
 +			if (x == src_clip->x1 && (adjust_x1 == 1)) {
@@ -2132,7 +2132,7 @@ index 97173aeed53c..4baefc8b5496 100644
 +				tmp_pixel = *dbuf & 0b11110000;
 +				rgb1 = tmp_pixel;
  			}
- 
+
  			gray = rgb0 | rgb1 << 4;
 @@ -1511,7 +1519,9 @@ static void rockchip_ebc_plane_atomic_update(struct drm_plane *plane,
  	list_for_each_entry_safe(area, next_area, &ebc_plane_state->areas, list) {
@@ -2142,7 +2142,7 @@ index 97173aeed53c..4baefc8b5496 100644
 +		int adjust_x1;
 +		int adjust_x2;
 +		bool clip_changed_fb;
- 
+
  		/* Convert from plane coordinates to CRTC coordinates. */
  		drm_rect_translate(dst_clip, translate_x, translate_y);
 @@ -1519,18 +1529,20 @@ static void rockchip_ebc_plane_atomic_update(struct drm_plane *plane,
@@ -2159,7 +2159,7 @@ index 97173aeed53c..4baefc8b5496 100644
 +
 +		dst_clip->x1 -= adjust_x1;
 +		src_clip.x1  -= adjust_x1;
- 
+
  		if (direct_mode)
 -			adjust = ((dst_clip->x2 + 3) ^ 3) & 3;
 +			adjust_x2 = ((dst_clip->x2 + 3) ^ 3) & 3;
@@ -2171,13 +2171,13 @@ index 97173aeed53c..4baefc8b5496 100644
 +
 +		dst_clip->x2 += adjust_x2;
 +		src_clip.x2  += adjust_x2;
- 
+
  		if (panel_reflection) {
  			int x1 = dst_clip->x1, x2 = dst_clip->x2;
 @@ -1539,8 +1551,16 @@ static void rockchip_ebc_plane_atomic_update(struct drm_plane *plane,
  			dst_clip->x2 = plane_state->dst.x2 - x1;
  		}
- 
+
 -		if (!rockchip_ebc_blit_fb(ctx, dst_clip, vaddr,
 -					  plane_state->fb, &src_clip)) {
 +		clip_changed_fb = rockchip_ebc_blit_fb(ctx, dst_clip, vaddr,
@@ -2192,8 +2192,8 @@ index 97173aeed53c..4baefc8b5496 100644
 +		if (!clip_changed_fb) {
  			drm_dbg(plane->dev, "area %p (" DRM_RECT_FMT ") <= (" DRM_RECT_FMT ") skipped\n",
  				area, DRM_RECT_ARG(&area->clip), DRM_RECT_ARG(&src_clip));
- 
--- 
+
+--
 2.30.2
 
 
@@ -2219,7 +2219,7 @@ index 4baefc8b5496..15b14acbfd2b 100644
 @@ -1508,6 +1508,7 @@ static void rockchip_ebc_plane_atomic_update(struct drm_plane *plane,
  	crtc_state = drm_atomic_get_new_crtc_state(state, plane_state->crtc);
  	ctx = to_ebc_crtc_state(crtc_state)->ctx;
- 
+
 +	spin_lock(&ctx->queue_lock);
  	drm_rect_fp_to_int(&src, &plane_state->src);
  	translate_x = plane_state->dst.x1 - src.x1;
@@ -2227,19 +2227,19 @@ index 4baefc8b5496..15b14acbfd2b 100644
 @@ -1515,7 +1516,6 @@ static void rockchip_ebc_plane_atomic_update(struct drm_plane *plane,
  	ebc_plane_state = to_ebc_plane_state(plane_state);
  	vaddr = ebc_plane_state->base.data[0].vaddr;
- 
+
 -	spin_lock(&ctx->queue_lock);
  	list_for_each_entry_safe(area, next_area, &ebc_plane_state->areas, list) {
  		struct drm_rect *dst_clip = &area->clip;
  		struct drm_rect src_clip = area->clip;
--- 
+--
 2.30.2
 
 
 From af9c4d804c7ef2efdb5ee2730b2fd9d6c6974e63 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Mon, 20 Jun 2022 13:19:31 +0200
-Subject: [PATCH 30/39] [rockchip_ebc] 	* add a sysfs handler 	 
+Subject: [PATCH 30/39] [rockchip_ebc] 	* add a sysfs handler
  (/sys/module/rockchip_ebc/parameters/limit_fb_blits) to limit the numbers of
  framebuffer blits. The default value of -1 does not limit blits at all. Can
  be used to investigate the buffer contents while debugging complex drawing
@@ -2258,18 +2258,18 @@ index 15b14acbfd2b..278a35209044 100644
 @@ -197,6 +197,10 @@ static int split_area_limit = 12;
  module_param(split_area_limit, int, S_IRUGO|S_IWUSR);
  MODULE_PARM_DESC(split_area_limit, "how many areas to split in each scheduling call");
- 
+
 +static int limit_fb_blits = -1;
 +module_param(limit_fb_blits, int, S_IRUGO|S_IWUSR);
 +MODULE_PARM_DESC(split_area_limit, "how many fb blits to allow. -1 does not limit");
 +
  DEFINE_DRM_GEM_FOPS(rockchip_ebc_fops);
- 
+
  static int ioctl_trigger_global_refresh(struct drm_device *dev, void *data,
 @@ -228,11 +232,75 @@ static int ioctl_set_off_screen(struct drm_device *dev, void *data,
  	return 0;
  }
- 
+
 +
 +/**
 + * struct rockchip_ebc_ctx - context for performing display refreshes
@@ -2340,12 +2340,12 @@ index 15b14acbfd2b..278a35209044 100644
 +	DRM_IOCTL_DEF_DRV(ROCKCHIP_EBC_EXTRACT_FBS, ioctl_extract_fbs,
 +			  DRM_RENDER_ALLOW),
  };
- 
+
  static const struct drm_driver rockchip_ebc_drm_driver = {
 @@ -268,36 +336,6 @@ struct rockchip_ebc_area {
  	u32				frame_begin;
  };
- 
+
 -/**
 - * struct rockchip_ebc_ctx - context for performing display refreshes
 - *
@@ -2382,7 +2382,7 @@ index 15b14acbfd2b..278a35209044 100644
 @@ -360,17 +398,6 @@ static void rockchip_ebc_ctx_release(struct kref *kref)
   * CRTC
   */
- 
+
 -struct ebc_crtc_state {
 -	struct drm_crtc_state		base;
 -	struct rockchip_ebc_ctx		*ctx;
@@ -2400,7 +2400,7 @@ index 15b14acbfd2b..278a35209044 100644
 @@ -1551,8 +1578,18 @@ static void rockchip_ebc_plane_atomic_update(struct drm_plane *plane,
  			dst_clip->x2 = plane_state->dst.x2 - x1;
  		}
- 
+
 -		clip_changed_fb = rockchip_ebc_blit_fb(ctx, dst_clip, vaddr,
 -					  plane_state->fb, &src_clip, adjust_x1, adjust_x2);
 +		if (limit_fb_blits != 0){
@@ -2415,7 +2415,7 @@ index 15b14acbfd2b..278a35209044 100644
 +			clip_changed_fb = false;
 +		}
 +
- 
+
  		// reverse coordinates
  		dst_clip->x1 += adjust_x1;
 diff --git a/include/uapi/drm/rockchip_ebc_drm.h b/include/uapi/drm/rockchip_ebc_drm.h
@@ -2425,7 +2425,7 @@ index befa62a68be0..5e8c87ae6af2 100644
 @@ -17,9 +17,19 @@ struct drm_rockchip_ebc_off_screen {
  	char * ptr_screen_content;
  };
- 
+
 -#define DRM_ROCKCHIP_EBC_NUM_IOCTLS		0x02
 +struct drm_rockchip_ebc_extract_fbs {
 +	char * ptr_prev;
@@ -2437,13 +2437,13 @@ index befa62a68be0..5e8c87ae6af2 100644
 +
 +
 +#define DRM_ROCKCHIP_EBC_NUM_IOCTLS		0x03
- 
+
  #define DRM_IOCTL_ROCKCHIP_EBC_GLOBAL_REFRESH	DRM_IOWR(DRM_COMMAND_BASE + 0x00, struct drm_rockchip_ebc_trigger_global_refresh)
  #define DRM_IOCTL_ROCKCHIP_EBC_OFF_SCREEN	DRM_IOWR(DRM_COMMAND_BASE + 0x01, struct drm_rockchip_ebc_off_screen)
 +#define DRM_IOCTL_ROCKCHIP_EBC_EXTRACT_FBS	DRM_IOWR(DRM_COMMAND_BASE + 0x02, struct drm_rockchip_ebc_extract_fbs)
- 
+
  #endif /* __ROCKCHIP_EBC_DRM_H__*/
--- 
+--
 2.30.2
 
 
@@ -2481,7 +2481,7 @@ index 278a35209044..d0670d482432 100644
 +	if (*split_counter >= split_area_limit)
 +		return 0;
 +
- 
+
  	// for now, min size if 2x2
  	if ((area->clip.x2 - area->clip.x1 < 2) | (area->clip.y2 - area->clip.y1 < 2))
 @@ -463,12 +479,6 @@ static int try_to_split_area(
@@ -2500,7 +2500,7 @@ index 278a35209044..d0670d482432 100644
 @@ -496,20 +506,11 @@ static int try_to_split_area(
  	if (no_xsplit && no_ysplit)
  		return 0;
- 
+
 -	// we do not want to overhelm the refresh thread and limit us to a
 -	// certain number of splits. The rest needs to wait
 -	if (*split_counter >= split_area_limit)
@@ -2510,7 +2510,7 @@ index 278a35209044..d0670d482432 100644
  	// the list. Note that the currently next item shall be copied
  	// backwards because to prevent the outer list iteration from
  	// skipping over our newly created items.
- 
+
 -	struct rockchip_ebc_area * item1;
 -	struct rockchip_ebc_area * item2;
 -	struct rockchip_ebc_area * item3;
@@ -2519,21 +2519,21 @@ index 278a35209044..d0670d482432 100644
  	if (split_both || no_xsplit)
  		item2 = kmalloc(sizeof(*item2), GFP_KERNEL);
 @@ -752,17 +753,20 @@ static void rockchip_ebc_blit_pixels(const struct rockchip_ebc_ctx *ctx,
- 
+
  	unsigned int x1_bytes = clip->x1 / 2;
  	unsigned int x2_bytes = clip->x2 / 2;
 -	// the integer division floors by default, but we want to include the last
 -	// byte (partially)
 -	if (end_x_is_odd)
 -		x2_bytes++;
- 
+
  	unsigned int pitch = ctx->gray4_pitch;
 -	unsigned int width = x2_bytes - x1_bytes;
 +	unsigned int width;
  	const u8 *src_line;
  	unsigned int y;
  	u8 *dst_line;
- 
+
 +	// the integer division floors by default, but we want to include the last
 +	// byte (partially)
 +	if (end_x_is_odd)
@@ -2543,8 +2543,8 @@ index 278a35209044..d0670d482432 100644
 +
  	dst_line = dst + clip->y1 * pitch + x1_bytes;
  	src_line = src + clip->y1 * pitch + x1_bytes;
- 
--- 
+
+--
 2.30.2
 
 
@@ -2567,14 +2567,14 @@ index d0670d482432..491efd20f2e9 100644
  		struct drm_rect intersection;
  		u32 other_end;
 +		//printk(KERN_INFO "    test other area: %i-%i %i-%i\n", other->clip.x1, other->clip.x2, other->clip.y1, other->clip.y2);
- 
+
  		/* Only consider areas before this one in the list. */
 -		if (other == area)
 +		if (other == area){
 +			//printk(KERN_INFO "        other==area\n");
  			break;
 +		}
- 
+
  		/* Skip areas that finish refresh before this area begins. */
  		other_end = other->frame_begin + num_phases;
 -		if (other_end <= frame_begin)
@@ -2582,7 +2582,7 @@ index d0670d482432..491efd20f2e9 100644
 +			//printk(KERN_INFO "        other finishes before: %i %i\n", other_end, frame_begin);
  			continue;
 +		}
- 
+
  		/* If there is no collision, the areas are independent. */
  		intersection = area->clip;
 -		if (!drm_rect_intersect(&intersection, &other->clip))
@@ -2590,24 +2590,24 @@ index d0670d482432..491efd20f2e9 100644
 +			//printk(KERN_INFO "        no collision\n");
  			continue;
 +		}
- 
+
  		/* If the other area already started, wait until it finishes. */
  		if (other->frame_begin < current_frame) {
  			frame_begin = max(frame_begin, other_end);
 +			//printk(KERN_INFO "        other already started, setting to %i\n", frame_begin);
- 
+
  			// so here we would optimally want to split the new area into three
  			// parts that do not overlap with the already-started area, and one
 @@ -630,12 +638,15 @@ static bool rockchip_ebc_schedule_area(struct list_head *areas,
  			// later, but the other three should start immediately.
- 
+
  			// if the area is equal to the clip, continue
 -			if (drm_rect_equals(&area->clip, &intersection))
 +			if (drm_rect_equals(&area->clip, &intersection)){
 +				//printk(KERN_INFO "        intersection completely contains area\n");
  				continue;
 +			}
- 
+
  			if (try_to_split_area(areas, area, other, split_counter, p_next_area, &intersection))
  			{
  				// let the outer loop delete this area
@@ -2622,12 +2622,12 @@ index d0670d482432..491efd20f2e9 100644
 +			//printk(KERN_INFO "    dropping\n");
  			return false;
  		}
- 
+
  		/* They do overlap but are are not equal and both not started yet, so
  		 * they can potentially start together */
  		frame_begin = max(frame_begin, other->frame_begin);
 +		//printk(KERN_INFO "    setting to: %i\n", frame_begin);
- 
+
  		// try to split, otherwise continue
  		if (try_to_split_area(areas, area, other, split_counter, p_next_area, &intersection))
  		{
@@ -2638,16 +2638,16 @@ index d0670d482432..491efd20f2e9 100644
  			continue;
 @@ -667,6 +681,7 @@ static bool rockchip_ebc_schedule_area(struct list_head *areas,
  	}
- 
+
  	area->frame_begin = frame_begin;
 +	//printk(KERN_INFO "    area scheduled to start at frame: %i (current: %i)\n", frame_begin, current_frame);
- 
+
  	return true;
  }
 @@ -1547,12 +1562,15 @@ static void rockchip_ebc_plane_atomic_update(struct drm_plane *plane,
  	ebc_plane_state = to_ebc_plane_state(plane_state);
  	vaddr = ebc_plane_state->base.data[0].vaddr;
- 
+
 +	//printk(KERN_INFO "new fb clips\n");
  	list_for_each_entry_safe(area, next_area, &ebc_plane_state->areas, list) {
  		struct drm_rect *dst_clip = &area->clip;
@@ -2657,7 +2657,7 @@ index d0670d482432..491efd20f2e9 100644
  		bool clip_changed_fb;
 +		//printk(KERN_INFO "    checking from list: (" DRM_RECT_FMT ") \n",
 +			/* DRM_RECT_ARG(&area->clip)); */
- 
+
  		/* Convert from plane coordinates to CRTC coordinates. */
  		drm_rect_translate(dst_clip, translate_x, translate_y);
 @@ -1611,6 +1629,8 @@ static void rockchip_ebc_plane_atomic_update(struct drm_plane *plane,
@@ -2668,8 +2668,8 @@ index d0670d482432..491efd20f2e9 100644
 +				/* DRM_RECT_ARG(&area->clip), DRM_RECT_ARG(&src_clip)); */
  		}
  	}
- 
--- 
+
+--
 2.30.2
 
 
@@ -2692,10 +2692,10 @@ index 491efd20f2e9..351cae36bc4d 100644
  		spin_lock(&ctx->queue_lock);
  		list_splice_tail_init(&ctx->queue, &areas);
 +		/* spin_unlock(&ctx->queue_lock); */
- 
+
  		list_for_each_entry_safe(area, next_area, &areas, list) {
  			s32 frame_delta;
--- 
+--
 2.30.2
 
 
@@ -2733,7 +2733,7 @@ index 351cae36bc4d..e8d108727c75 100644
  	}
  	dma_unmap_single(dev, phase_handles[0], ctx->gray4_size, DMA_TO_DEVICE);
  	dma_unmap_single(dev, phase_handles[1], ctx->gray4_size, DMA_TO_DEVICE);
--- 
+--
 2.30.2
 
 
@@ -2756,19 +2756,19 @@ index e8d108727c75..f30010151c02 100644
  	int delta_x;
  	void *dst;
 +	int test1, test2;
- 
+
  	delta_x = panel_reflection ? -1 : 1;
  	start_x = panel_reflection ? src_clip->x2 - 1 : src_clip->x1;
 +	// depending on the direction we must either save the first or the last bit
 +	test1 = panel_reflection ? adjust_x1 : adjust_x2;
 +	test2 = panel_reflection ? adjust_x2 : adjust_x1;
- 
+
  	dst = ctx->final + dst_clip->y1 * dst_pitch + dst_clip->x1 / 2;
  	src = vaddr + src_clip->y1 * src_pitch + start_x * fb->format->cpp[0];
 @@ -1509,8 +1513,7 @@ static bool rockchip_ebc_blit_fb(const struct rockchip_ebc_ctx *ctx,
  			rgb0 >>= 28;
  			rgb1 >>= 28;
- 
+
 -			// Does this account for panel reflection?
 -			if (x == src_clip->x1 && (adjust_x1 == 1)) {
 +			if (x == src_clip->x1 && (test1 == 1)) {
@@ -2784,7 +2784,7 @@ index e8d108727c75..f30010151c02 100644
  				// rgb1 should be filled with the content of the dst pixel we
  				// want to keep here
  				// keep 4 higher bits
--- 
+--
 2.30.2
 
 
@@ -2803,7 +2803,7 @@ index f30010151c02..a72d1e219691 100644
 +++ b/drivers/gpu/drm/rockchip/rockchip_ebc.c
 @@ -1608,18 +1608,17 @@ static void rockchip_ebc_plane_atomic_update(struct drm_plane *plane,
  		}
- 
+
  		if (limit_fb_blits != 0){
 -			printk(KERN_INFO "atomic update: blitting: %i\n", limit_fb_blits);
 +			//printk(KERN_INFO "atomic update: blitting: %i\n", limit_fb_blits);
@@ -2817,12 +2817,12 @@ index f30010151c02..a72d1e219691 100644
 +			//printk(KERN_INFO "atomic update: not blitting: %i\n", limit_fb_blits);
  			clip_changed_fb = false;
  		}
- 
+
 -
  		// reverse coordinates
  		dst_clip->x1 += adjust_x1;
  		src_clip.x1  += adjust_x1;
--- 
+--
 2.30.2
 
 
@@ -2842,12 +2842,12 @@ index a72d1e219691..62daf5c107c4 100644
 @@ -1645,6 +1645,7 @@ static void rockchip_ebc_plane_atomic_update(struct drm_plane *plane,
  		return;
  	}
- 
+
 +	/* spin_lock(&ctx->queue_lock); */
  	list_splice_tail_init(&ebc_plane_state->areas, &ctx->queue);
  	spin_unlock(&ctx->queue_lock);
- 
--- 
+
+--
 2.30.2
 
 
@@ -2873,9 +2873,9 @@ index 62daf5c107c4..b7358a350655 100644
 +				// shift by four pixels to the lower bits
 +				rgb1 = tmp_pixel >> 4;
  			}
- 
+
  			gray = rgb0 | rgb1 << 4;
--- 
+--
 2.30.2
 
 
@@ -2894,21 +2894,21 @@ index b7358a350655..479a84da80c0 100644
 --- a/drivers/gpu/drm/rockchip/rockchip_ebc.c
 +++ b/drivers/gpu/drm/rockchip/rockchip_ebc.c
 @@ -413,14 +413,11 @@ static void rockchip_ebc_global_refresh(struct rockchip_ebc *ebc,
- 
+
  	spin_lock(&ctx->queue_lock);
  	list_splice_tail_init(&ctx->queue, &areas);
 -	spin_unlock(&ctx->queue_lock);
 -
  	memcpy(ctx->next, ctx->final, gray4_size);
 +	spin_unlock(&ctx->queue_lock);
- 
+
 -	dma_sync_single_for_device(dev, next_handle,
 -				   gray4_size, DMA_TO_DEVICE);
 -	dma_sync_single_for_device(dev, prev_handle,
 -				   gray4_size, DMA_TO_DEVICE);
 +	dma_sync_single_for_device(dev, next_handle, gray4_size, DMA_TO_DEVICE);
 +	dma_sync_single_for_device(dev, prev_handle, gray4_size, DMA_TO_DEVICE);
- 
+
  	reinit_completion(&ebc->display_end);
  	regmap_write(ebc->regmap, EBC_CONFIG_DONE,
 @@ -1146,7 +1143,16 @@ static int rockchip_ebc_refresh_thread(void *data)
@@ -2929,6 +2929,6 @@ index b7358a350655..479a84da80c0 100644
  			} else {
  				rockchip_ebc_refresh(ebc, ctx, false, default_waveform);
  			}
--- 
+--
 2.30.2
 
