@@ -19,7 +19,8 @@
 	[   18.557907] Bluetooth: hci0: BCM43455 37.4MHz Raspberry Pi 3+-0159
 	[   18.558619] Bluetooth: hci0: BCM4345C0 (003.001.025) build 0290
 
-* Modules hidp and uhid compiled as modules.
+* Modules hidp and uhid compiled as modules
+* Connect via bluetoothctl::
 
 	root@pinenote:~# bluetoothctl
 	Agent registered
