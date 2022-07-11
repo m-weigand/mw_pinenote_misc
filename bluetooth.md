@@ -60,3 +60,5 @@
 	[CHG] Device F4:73:47:6B:38:D0 Connected: yes
 	Connection successful
 	[Keyboard K480]#
+
+*
