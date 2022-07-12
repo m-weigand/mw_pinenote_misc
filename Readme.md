@@ -7,7 +7,7 @@ around with their Pinenote.
 
 ## Videos
 
-A few videos can be found in (videos)[videos]
+A few videos can be found in [videos](videos)
 
 ## Kernel Patches
 
