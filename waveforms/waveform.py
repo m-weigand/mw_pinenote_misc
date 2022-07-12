@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+# Same licence as
+# https://github.com/smaeul/linux/blob/rk35/ebc-drm-v5/drivers/gpu/drm/ \
+#   drm_epd_helper.c
 import os
 import ctypes
 import struct
