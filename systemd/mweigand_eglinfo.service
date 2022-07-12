@@ -1,0 +1,8 @@
+[Unit]
+Description=Mweigand service
+
+[Service]
+ExecStart=/usr/bin/eglinfo
+
+[Install]
+WantedBy=multi-user.target

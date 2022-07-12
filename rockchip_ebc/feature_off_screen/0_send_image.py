@@ -1,12 +1,9 @@
 #!/usr/bin/env python
+# Set the off-screen content using an ioctl. Note that this transient and will
+# not be remembered on next reboot! Use the firmware-approach for this.
 import random
 import fnctl
 import ctypes
-# struct drm_rockchip_ebc_info_2 {
-#     __u64 info1;
-#     __u64 ptr_screen_content;
-# };
-
 
 class offscreen(ctypes.Structure):
     _fields_ = [
@@ -15,7 +12,10 @@ class offscreen(ctypes.Structure):
     ]
 
 
+# TODO: Read from file
+# (1872 x 1404) / 2
 pixel_nr = 1314144
+# this buffer should contain the pixel values
 screen = ctypes.create_string_buffer(b'\000' * pixel_nr)
 for i in range(0, len(screen)):
     screen[i] = random.randint(0, 255)

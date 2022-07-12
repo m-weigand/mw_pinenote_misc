@@ -9,8 +9,19 @@ See the **Usage** section below for information on how to use the new features.
 * Branch pinenote-next
 * commit 0b654237163e30b9812185859e0545b25a75444b
 
-## New features (as of 2022.Jun.18)
+## Compiling
 
+Use (this)[../../custom_kernel/clone_and_prepare_git.sh] script to clone the
+kernel repo and apply some patches.
+
+Use (this)[../../custom_kernel/compile.sh] script to compile the kernel.
+
+Use (this)[../../initrd/gen_uboot_image.sh] script to generate an initrd image
+using dracut.
+
+## New features (as of 2022.July.12)
+
+* Black and white mode
 * Area splititng (improves xournalpp performance)
 * Allow odd start/end coordinates for clips (i.e., 1x1 pixel blits)
 * Auto refresh based on partially refreshed screen area
@@ -22,7 +33,7 @@ See the **Usage** section below for information on how to use the new features.
   greatly reduces (but not removes) artifacting and ghosting
 * A few (subjective?) bug-fixes
 
-## Applications
+## Applying the patches
 
 Check if the patch can be correctly applied:
 
@@ -31,6 +42,59 @@ Check if the patch can be correctly applied:
 	patch --dry-run -p1 < rockchip_ebc_patches_mw_20220623.patch
 
 Then remove the **--dry-run** option and rerun to actually apply.
+
+## Usage
+
+All module parameters are controlled using the sysfs parameters in
+/sys/module/rockchip_ebc/parameters
+
+The module parameters can also be set on module load time, for example using
+the modprobe configuration file:
+
+	root@pinenote:~# cat /etc/modprobe.d/rockchip_ebc.conf
+	options rockchip_ebc direct_mode=0 auto_refresh=1 split_area_limit=0 panel_reflection=1
+
+By default they need to be writen to as root, but this can be easily changed
+via udev rules.
+
+### Black and White mode
+
+Activate with
+
+	echo 1 > /sys/module/rockchip_ebc/parameters/bw_mode
+
+the threshold value can be set using:
+
+	echo 7 > /sys/module/rockchip_ebc/parameters/bw_threshold
+
+7 is the default value, meaning that all pixel values lower than 7 will be cast
+to 0 (black) and all values larger than, or equal to, 7 will be cast to 15
+(white).
+
+### Auto Refresh
+
+Enabling automatic global (full screen) refreshes:
+
+echo 1 > /sys/module/rockchip_ebc/parameters/auto_refresh
+
+Global refreshes are triggered based on the area drawing using partial
+refreshes, in units of total screen area.
+
+echo 2 > /sys/module/rockchip_ebc/parameters/refresh_threshold
+
+therefore will trigger a globlal refresh whenever 2 screen areas where drawn.
+
+The threshold should be set according to the application used. For example,
+evince and xournalpp really like to redraw the screen very often, so a value of
+20 suffices.
+Other require lower numbers.
+
+### Off-screen
+
+TODO: Documentation
+
+For now see (../feature_off_screen)[../feature_off_screen] for more
+information.
 
 ## Open issues
 
@@ -58,25 +122,3 @@ Then remove the **--dry-run** option and rerun to actually apply.
   requirements).
 * I'm still seeing gray areas in xournalpp from time to time. This points to a
   bug in the scheduling/area-splitting code. Needs more investigation
-
-## Usage
-
-All module parameters are controlled using the sysfs parameters in
-/sys/module/rockchip_ebc/parameters
-
-By default they need to be writen to as root, but this can be easily changed
-via udev rules.
-
-
-### Auto Refresh
-
-Enabling automatic global (full screene refreshes:
-
-echo 1 > /sys/module/rockchip_ebc/parameters/auto_refresh
-
-Global refreshes are triggered based on the area drawing using partial
-refreshes, in units of total screen area.
-
-echo 2 > /sys/module/rockchip_ebc/parameters/refresh_threshold
-
-therefore will trigger a globla refresh whenever 2 screen areas where drawn.

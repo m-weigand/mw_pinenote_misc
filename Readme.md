@@ -22,3 +22,8 @@ Reading, modifying and writing waveform files is useful to optimize the existing
 A rudimentary Python interface for reading/writing these waveform files can be found in [waveforms](waveforms).
 
 As a working (and useful) example, the A2 waveform was shortened to 5 phases and white->white and black->black transitions were added.
+
+## Links
+
+* https://github.com/0cc4m/pinenote-misc
+* https://gitlab.com/hrdl/pinenote-shared/
