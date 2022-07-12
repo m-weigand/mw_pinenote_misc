@@ -5,6 +5,10 @@ So I got a Pinenote and started to work on getting Debian to run on this nice li
 This repository contains various documents and patches that I hope prove useful to others also playing
 around with their Pinenote.
 
+## Videos
+
+A few videos can be found in (videos)[videos]
+
 ## Kernel Patches
 
 I added a few small quality-of-live features to the eink display controller driver developed by smaeul (https://github.com/smaeul/linux/tree/rk35/pinenote-next). Those patches and corresponding documentation can be found here: [ebc patches](rockchip_ebc/patches/).
