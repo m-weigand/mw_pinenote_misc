@@ -14,4 +14,4 @@ A new waveform file "test.bin" is then produced with modified A2 waveform.
 
 ## Analysis of factory-provided waveforms
 
-[default_waveform_lengths.jpg](default_waveform_lengths.jpg)
+![default_waveform_lengths.jpg](default_waveform_lengths.jpg)
