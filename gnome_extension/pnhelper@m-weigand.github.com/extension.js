@@ -136,6 +136,47 @@ class Extension {
 		);
 	}
 
+	_set_a1_waveform(){
+		this._write_to_sysfs_file(
+			'/sys/module/rockchip_ebc/parameters/default_waveform',
+			1
+		);
+	}
+
+	_set_waveform(waveform){
+		this._write_to_sysfs_file(
+			'/sys/module/rockchip_ebc/parameters/default_waveform',
+			waveform
+		);
+	}
+
+	_add_waveform_buttons(){
+		let item;
+		item = new PopupMenu.PopupMenuItem(_('A2 Waveform'));
+		item.connect('activate', () => {
+			this.set_waveform(1);
+		});
+		this._indicator.menu.addMenuItem(item);
+
+		item = new PopupMenu.PopupMenuItem(_('DU Waveform'));
+		item.connect('activate', () => {
+			this.set_waveform(2);
+		});
+		this._indicator.menu.addMenuItem(item);
+
+		item = new PopupMenu.PopupMenuItem(_('GC16 Waveform'));
+		item.connect('activate', () => {
+			this.set_waveform(4);
+		});
+		this._indicator.menu.addMenuItem(item);
+
+		item = new PopupMenu.PopupMenuItem(_('DU4 Waveform'));
+		item.connect('activate', () => {
+			this.set_waveform(7);
+		});
+		this._indicator.menu.addMenuItem(item);
+	}
+
     enable() {
         log(`enabling ${Me.metadata.name}`);
 
@@ -172,6 +213,7 @@ class Extension {
 		this._indicator.menu.addMenuItem(this.mitem_bw_mode);
 
 		this._add_bw_slider();
+		this._add_waveform_buttons()
 
 		// ////////////////////////////////////////////////////////////////////
         // let indicatorName2 = `${Me.metadata.name} Indicator2`;
@@ -211,6 +253,7 @@ class Extension {
 			// fast mode
 			new_value = 1;
 			new_wf = 1;
+			refresh_threshold = 2
 			this.mitem_bw_mode.label.set_text('Grayscale Mode');
 		}
 		else{
@@ -218,8 +261,14 @@ class Extension {
 			// standard mode
 			new_value = 0;
 			new_wf = 4;
+			refresh_threshold = 20
 			this.mitem_bw_mode.label.set_text('Black & White');
 		}
+
+		this._write_to_sysfs_file(
+			'/sys/module/rockchip_ebc/parameters/refresh_threshold',
+			refresh_threshold
+		);
 
 		let wf_file;
 		wf_file = '/sys/module/rockchip_ebc/parameters/default_waveform';
