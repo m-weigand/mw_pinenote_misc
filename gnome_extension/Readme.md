@@ -11,3 +11,12 @@ care.**
 **Naturally, merge requests (or rewrites) are very welcome!**
 
 ![screenshot](screenshot.png)
+
+## Installation
+
+* Copy to the local extension directory
+
+	rsync -avh pnhelper@m-weigand.github.com/ /home/mweigand/.local/share/gnome-shell/extensions/pnhelper@m-weigand.github.com/
+
+* enable in gnome extension manager
+* restart gnome
