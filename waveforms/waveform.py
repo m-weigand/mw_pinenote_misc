@@ -434,19 +434,20 @@ if __name__ == '__main__':
         del(nwff.waveforms.waveforms[6].temp_luts[24].phases[0])
         del(nwff.waveforms.waveforms[6].temp_luts[27].phases[0])
 
-    for temp in [18, 21, 24, 27]:
-        for phase in nwff.waveforms.waveforms[6].temp_luts[temp].phases[:-1]:
-            # white -> white
-            # make whiter. Keep in mind that this will not work in
-            # diff_mode!!!
-            phase.polarisations[30, 30] = 2
-            phase.polarisations[30, 31] = 2
-            phase.polarisations[30, 29] = 2
+    # Warning: This probably DC-biases the panel!!!
+    # for temp in [18, 21, 24, 27]:
+    #     for phase in nwff.waveforms.waveforms[6].temp_luts[temp].phases[:-1]:
+    #         # white -> white
+    #         # make whiter. Keep in mind that this will not work in
+    #         # diff_mode!!!
+    #         phase.polarisations[30, 30] = 2
+    #         phase.polarisations[30, 31] = 2
+    #         phase.polarisations[30, 29] = 2
 
-            # # black -> black
-            phase.polarisations[0, 0] = 1
-            phase.polarisations[0, 1] = 1
-            phase.polarisations[0, 3] = 1
+    #         # # black -> black
+    #         phase.polarisations[0, 0] = 1
+    #         phase.polarisations[0, 1] = 1
+    #         phase.polarisations[0, 3] = 1
 
     # export
     nwff.export_to_file('test.bin')
