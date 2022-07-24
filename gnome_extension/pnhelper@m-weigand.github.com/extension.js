@@ -154,25 +154,25 @@ class Extension {
 		let item;
 		item = new PopupMenu.PopupMenuItem(_('A2 Waveform'));
 		item.connect('activate', () => {
-			this.set_waveform(1);
+			this._set_waveform(1);
 		});
 		this._indicator.menu.addMenuItem(item);
 
 		item = new PopupMenu.PopupMenuItem(_('DU Waveform'));
 		item.connect('activate', () => {
-			this.set_waveform(2);
+			this._set_waveform(2);
 		});
 		this._indicator.menu.addMenuItem(item);
 
 		item = new PopupMenu.PopupMenuItem(_('GC16 Waveform'));
 		item.connect('activate', () => {
-			this.set_waveform(4);
+			this._set_waveform(4);
 		});
 		this._indicator.menu.addMenuItem(item);
 
 		item = new PopupMenu.PopupMenuItem(_('DU4 Waveform'));
 		item.connect('activate', () => {
-			this.set_waveform(7);
+			this._set_waveform(7);
 		});
 		this._indicator.menu.addMenuItem(item);
 	}
@@ -248,6 +248,8 @@ class Extension {
 		log(`orig: ${contents}`);
 		let new_value;
 		let new_wf;
+		let refresh_threshold;
+
 		if(contentsString[0] == 'N'){
 			log('toggling black and white mode');
 			// fast mode
