@@ -1,0 +1,65 @@
+diff --git a/arch/arm64/boot/dts/rockchip/rk3566-pinenote-v1.2.dts b/arch/arm64/boot/dts/rockchip/rk3566-pinenote-v1.2.dts
+index 6bbc4c675d..92ef19676e 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3566-pinenote-v1.2.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3566-pinenote-v1.2.dts
+@@ -16,3 +16,39 @@ &pmu_io_domains {
+ &spk_amp {
+ 	VCC-supply = <&vcc_bat>;
+ };
++
++&usb2phy0_otg {
++	port {
++		usb2phy0_typec_hs: endpoint {
++			remote-endpoint = <&usbc_hs>;
++		};
++	};
++};
++
++&wusb3801 {
++	status = "okay";
++
++	connector {
++		compatible = "usb-c-connector";
++		label = "USB-C";
++		vbus-supply = <&otg_switch>;
++		power-role = "dual";
++		try-power-role = "sink";
++		data-role = "dual";
++		typec-power-opmode = "default";
++		pd-disable;
++
++		ports {
++			#address-cells = <0x01>;
++			#size-cells = <0x00>;
++
++			port@0 {
++				reg = <0x00>;
++
++				usbc_hs: endpoint {
++					remote-endpoint = <&usb2phy0_typec_hs>;
++				};
++			};
++		};
++	};
++};
+diff --git a/arch/arm64/boot/dts/rockchip/rk3566-pinenote.dtsi b/arch/arm64/boot/dts/rockchip/rk3566-pinenote.dtsi
+index 59ac178881..e5ab58cbc0 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3566-pinenote.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3566-pinenote.dtsi
+@@ -6,6 +6,7 @@
+ #include <dt-bindings/leds/common.h>
+ #include <dt-bindings/pinctrl/rockchip.h>
+ #include <dt-bindings/suspend/rockchip-rk3568.h>
++#include <dt-bindings/usb/pd.h>
+ 
+ #include "rk3566.dtsi"
+ 
+@@ -611,7 +612,7 @@ wusb3801: tcpc@60 {
+ 		interrupts = <RK_PA4 IRQ_TYPE_LEVEL_LOW>;
+ 		pinctrl-0 = <&tcpc_int_l>;
+ 		pinctrl-names = "default";
+-		status = "disabled";
++		status = "okay";
+ 	};
+ 
+ 	/* TODO: write binding */
