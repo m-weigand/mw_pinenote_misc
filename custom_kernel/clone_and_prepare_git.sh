@@ -24,8 +24,12 @@ wget -nc https://raw.githubusercontent.com/m-weigand/mw_pinenote_misc/main/custo
 # the rockchip_ebc modifications
 wget -nc https://raw.githubusercontent.com/m-weigand/mw_pinenote_misc/main/rockchip_ebc/patches/rockchip_ebc_patches_mw_20220622.patch
 
+# USB patches
+wget -nc https://raw.githubusercontent.com/m-weigand/mw_pinenote_misc/main/usb/wusb3801_patches_samsapti_20220725.patch
+
 cd linux
 git apply ../pinenote_defconfig.patch
 git apply ../rk3566-pinenote_dtsi.patch
 git apply ../rockchip_ebc_patches_mw_20220624.patch
+git apply ../wusb3801_patches_samsapti_20220725.patch
 cd ..
