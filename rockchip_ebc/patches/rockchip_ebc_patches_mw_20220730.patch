@@ -1,7 +1,7 @@
 From cb80d9f99f75ea1ed6c8c6b194910b6ae9574a07 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Mon, 30 May 2022 21:06:31 +0200
-Subject: [PATCH 01/37] [rockchip_ebc] when doing partial refreshes, wait for
+Subject: [PATCH 01/41] [rockchip_ebc] when doing partial refreshes, wait for
  each frame to finish (i.e. wait for the irc from the epd controller) before
  starting to fill in the buffers for the next frame
 
@@ -49,7 +49,7 @@ index 285f43bc6d91..d7ed954e1618 100644
 From cdbfcec184ed55da2d55a8622240e5a30c03eb1e Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Mon, 30 May 2022 21:13:57 +0200
-Subject: [PATCH 02/37] [rockchip_ebc] change the dma mappings in
+Subject: [PATCH 02/41] [rockchip_ebc] change the dma mappings in
  rockchip_ebc_partial_refresh according to the documentation in
  Documentation/core-api/dma-api.rst and use dma_map_single to get dma address
 
@@ -118,7 +118,7 @@ index d7ed954e1618..b0dfc493c059 100644
 From f79e16df9a8f7853e206d5f4cb122ca231a0b2ab Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Mon, 30 May 2022 21:25:29 +0200
-Subject: [PATCH 03/37] [rockchip_ebc] Some people (including me on a Debian
+Subject: [PATCH 03/41] [rockchip_ebc] Some people (including me on a Debian
  sid installation) see kernel panics/hangs on reboot/shutdown (and module
  unload) with the new driver.  Investigation shows that the refresh thread
  hangs on the schedule() command, which lead me to believe that the thread is
@@ -223,7 +223,7 @@ index b0dfc493c059..4df73794281b 100644
 From 74e9d814c298f064a07ebc77b1e7ec447cc340f6 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Mon, 30 May 2022 22:20:41 +0200
-Subject: [PATCH 04/37] [rockchip_ebc] use dma_sync_single_for_cpu before
+Subject: [PATCH 04/41] [rockchip_ebc] use dma_sync_single_for_cpu before
  writing to dma buffers
 
 ---
@@ -267,7 +267,7 @@ index 4df73794281b..d8af43fe9f42 100644
 From 39686d27f0193a625b6f569b8de88e1b85e92480 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Mon, 30 May 2022 22:39:00 +0200
-Subject: [PATCH 05/37] rockchip_ebc fix previous commit
+Subject: [PATCH 05/41] rockchip_ebc fix previous commit
 
 ---
  drivers/gpu/drm/rockchip/rockchip_ebc.c | 2 +-
@@ -293,7 +293,7 @@ index d8af43fe9f42..6a0f125040df 100644
 From a347a0909bb7bde73ba53b9ebae044f7fd17466f Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Fri, 3 Jun 2022 21:13:28 +0200
-Subject: [PATCH 06/37] [rockchip_ebc] convert all remaining uses of
+Subject: [PATCH 06/41] [rockchip_ebc] convert all remaining uses of
  virt_to_phys to the dma api
 
 ---
@@ -409,7 +409,7 @@ index 6a0f125040df..87deb8098d2d 100644
 From 28a024ea077105a567f8151f182f9e29c19027e5 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Fri, 3 Jun 2022 21:16:37 +0200
-Subject: [PATCH 07/37] [rockchip_ebc] add missing dma sinc call
+Subject: [PATCH 07/41] [rockchip_ebc] add missing dma sinc call
 
 ---
  drivers/gpu/drm/rockchip/rockchip_ebc.c | 1 +
@@ -434,7 +434,7 @@ index 87deb8098d2d..0681504fc8d7 100644
 From 7e9e19d5342f5b9bf79d0dcddee2108d1991b7bf Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Fri, 3 Jun 2022 21:19:14 +0200
-Subject: [PATCH 08/37] [rockchip_ebc] global refresh should use ctx->final
+Subject: [PATCH 08/41] [rockchip_ebc] global refresh should use ctx->final
  instead of ctx->next to get the current image. Also, delete all pending area
  updates when doing a global refresh.
 
@@ -500,7 +500,7 @@ index 0681504fc8d7..470638f59d43 100644
 From 53bf42cca1aaabf10e03a8c2e455bea16b2ac539 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Fri, 3 Jun 2022 21:27:38 +0200
-Subject: [PATCH 09/37] Revert "[rockchip_ebc] global refresh should use
+Subject: [PATCH 09/41] Revert "[rockchip_ebc] global refresh should use
  ctx->final instead of ctx->next"
 
 This reverts commit 599a3057df02ab9188d3d6c9db5b5d6846a445c9.
@@ -566,7 +566,7 @@ index 470638f59d43..0681504fc8d7 100644
 From c4babc5ae528d3c8c260fe6584f0d1812dda65ef Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Sat, 4 Jun 2022 19:39:48 +0200
-Subject: [PATCH 10/37] [rockchip_ebc] global refresh should use ctx->final
+Subject: [PATCH 10/41] [rockchip_ebc] global refresh should use ctx->final
  instead of ctx->next     to get the current image. Also, delete all pending
  area updates when     doing a global refresh.
 
@@ -623,7 +623,7 @@ index 0681504fc8d7..41852c23802e 100644
 From bb0e94904c9188675bfb6b3e264cc409c558ea72 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Sat, 4 Jun 2022 19:44:00 +0200
-Subject: [PATCH 11/37] [rockchip_ebc] add the possibility to trigger one
+Subject: [PATCH 11/41] [rockchip_ebc] add the possibility to trigger one
  global refresh using a module-global variable do_one_full_refresh
 
 ---
@@ -689,7 +689,7 @@ index 41852c23802e..b1c8f967350b 100644
 From 2b62b6c5853200cf1f1f63010d8edb56a8a08ceb Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Sat, 4 Jun 2022 19:46:46 +0200
-Subject: [PATCH 12/37] [rockchip_ebc] add possibility to change the
+Subject: [PATCH 12/41] [rockchip_ebc] add possibility to change the
  off-screen, i.e. the content of the screen when the module is unloaded. The
  content is read on module-load time from the firmware file
  rockchip/rockchip_ebc_default_screen.bin. The file must be of size 1314144
@@ -770,7 +770,7 @@ index b1c8f967350b..edf98b048a07 100644
 From f7fb21e16439c8e271786a20543c7ed74e892750 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Sat, 4 Jun 2022 19:49:14 +0200
-Subject: [PATCH 13/37] [rockchip_ebc] implement a simple auto_refresh scheme
+Subject: [PATCH 13/41] [rockchip_ebc] implement a simple auto_refresh scheme
  which triggers a global refresh after a certain area has been drawn using the
  partial refresh path. The threshold of drawn area after which the refresh is
  triggered can be modified using the sysfs file
@@ -886,7 +886,7 @@ index edf98b048a07..69ef34e86ba7 100644
 From eef2a823bf96f492a4d28fe0f90ea91a3c1bb936 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Sat, 4 Jun 2022 20:02:26 +0200
-Subject: [PATCH 14/37] [rockchip_ebc] Add two ioctls to the rockchip_ebc
+Subject: [PATCH 14/41] [rockchip_ebc] Add two ioctls to the rockchip_ebc
  module:
 
 DRM_IOCTL_ROCKCHIP_EBC_GLOBAL_REFRESH triggers a global fresh
@@ -1021,7 +1021,7 @@ index 000000000000..befa62a68be0
 From 2855fb8cf5824b9d0d62d194440a4d7aad360c28 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Thu, 9 Jun 2022 09:56:13 +0200
-Subject: [PATCH 15/37] [rockchip_ebc] try to split overlapping areas into four
+Subject: [PATCH 15/41] [rockchip_ebc] try to split overlapping areas into four
  subareas during refresh so that the non-overlapping parts can start to
  refresh as soon as possible and we only need to wait for the overlapping
  part.
@@ -1304,7 +1304,7 @@ index 9a0a238829bb..6f7bbe0bd70f 100644
 From 58cb814fa8389a157c30d90511be33b75066a417 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Sat, 11 Jun 2022 20:55:34 +0200
-Subject: [PATCH 16/37] [rockchip_ebc] add a sys parameter split_area_limit
+Subject: [PATCH 16/41] [rockchip_ebc] add a sys parameter split_area_limit
  (default: 12) that determines how many areas to maximally split in each
  scheduling run. Set to 0 to disable area splitting.
 
@@ -1343,7 +1343,7 @@ index 6f7bbe0bd70f..ae8f6727d05c 100644
 From 2b91cc2d12d73e24bfbfae3fdc9a71e83885092d Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Sat, 11 Jun 2022 20:56:36 +0200
-Subject: [PATCH 17/37] [rockchip_ebc] fix ioctl printk message
+Subject: [PATCH 17/41] [rockchip_ebc] fix ioctl printk message
 
 ---
  drivers/gpu/drm/rockchip/rockchip_ebc.c | 2 +-
@@ -1369,7 +1369,7 @@ index ae8f6727d05c..4d6a799d7bb4 100644
 From 314ebae7211613cce9085809115212f3dc1002a8 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Sat, 11 Jun 2022 20:57:14 +0200
-Subject: [PATCH 18/37] [rockchip_ebc] fix clips of split areas
+Subject: [PATCH 18/41] [rockchip_ebc] fix clips of split areas
 
 ---
  drivers/gpu/drm/rockchip/rockchip_ebc.c | 8 ++++----
@@ -1410,7 +1410,7 @@ index 4d6a799d7bb4..4eb6e1e0f261 100644
 From 5894a086939ec2c8e88bdbe2505052d6d4fd7da4 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Sat, 11 Jun 2022 20:57:44 +0200
-Subject: [PATCH 19/37] [rockchip_ebc] fix incrementing of splitting counter
+Subject: [PATCH 19/41] [rockchip_ebc] fix incrementing of splitting counter
 
 ---
  drivers/gpu/drm/rockchip/rockchip_ebc.c | 2 +-
@@ -1436,7 +1436,7 @@ index 4eb6e1e0f261..7e1558403973 100644
 From 325b7773c89b498de357d2952ed47ba052658296 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Sat, 11 Jun 2022 20:58:17 +0200
-Subject: [PATCH 20/37] [rockchip_ebc] Fix a bug in the scheduling function
+Subject: [PATCH 20/41] [rockchip_ebc] Fix a bug in the scheduling function
  that could schedule an area too early: if the area overlaps with an
  already-started area, its begin_frame will be set to the end frame of the
  other one. However, if any frame in the list follows that can start earlier
@@ -1470,7 +1470,7 @@ index 7e1558403973..973d13ffd0d3 100644
 From 350e4ec1da7cb4fe67ccb6d54b98cfead031c500 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Sat, 11 Jun 2022 21:08:19 +0200
-Subject: [PATCH 21/37] [rockchip_ebc] The current driver iteration does not
+Subject: [PATCH 21/41] [rockchip_ebc] The current driver iteration does not
  guarantee consistency between the list of currently-worked on damaged areas
  (snapshot of ctx->queue taken at the beginning of each frame) and the
  framebuffer content (ctx->final). As such it is possible that the content of
@@ -1547,7 +1547,7 @@ index 973d13ffd0d3..3ef899c4779f 100644
 From b36084b7f777dda669cf8132f539c2ebb89dca45 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Fri, 17 Jun 2022 11:05:06 +0200
-Subject: [PATCH 22/37] [rockchip_ebc] remove/comment out debug printk messages
+Subject: [PATCH 22/41] [rockchip_ebc] remove/comment out debug printk messages
 
 ---
  drivers/gpu/drm/rockchip/rockchip_ebc.c | 11 +++--------
@@ -1630,7 +1630,7 @@ index 3ef899c4779f..819e4bf28595 100644
 From 74cfa9aaf87f2f0b93a65052c248f0bd21b4b422 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Fri, 17 Jun 2022 11:08:08 +0200
-Subject: [PATCH 23/37] [rockchip_ebc] move the area-splitting code to its own
+Subject: [PATCH 23/41] [rockchip_ebc] move the area-splitting code to its own
  function and hopefully fix the pointer-usage and list-handlings bugs.
 
 Also, try to split areas even if the other area was not started yet. I'm
@@ -1950,7 +1950,7 @@ index 819e4bf28595..52bf5d11ec57 100644
 From 491388a2f538ef97c9699c723b3b574072b0fd85 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Fri, 17 Jun 2022 11:10:24 +0200
-Subject: [PATCH 24/37] [rockchip_ebc] remove comment
+Subject: [PATCH 24/41] [rockchip_ebc] remove comment
 
 ---
  drivers/gpu/drm/rockchip/rockchip_ebc.c | 1 -
@@ -1975,7 +1975,7 @@ index 52bf5d11ec57..5d42b45abb5b 100644
 From 5a177ed3f5813d31b8d2aeda46866a067f296fdd Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Fri, 17 Jun 2022 11:26:13 +0200
-Subject: [PATCH 25/37] [rockchip_ebc] fix another scheduling bug: only
+Subject: [PATCH 25/41] [rockchip_ebc] fix another scheduling bug: only
  increase, but never drecrease the frame_begin number
 
 ---
@@ -2002,7 +2002,7 @@ index 5d42b45abb5b..7f5fe7252ac4 100644
 From 35f8f647a3f7bd68cd96abee41c442abded7c2b8 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Fri, 17 Jun 2022 11:26:32 +0200
-Subject: [PATCH 26/37] [rockchip_ebc] rework comment
+Subject: [PATCH 26/41] [rockchip_ebc] rework comment
 
 ---
  drivers/gpu/drm/rockchip/rockchip_ebc.c | 4 ++--
@@ -2030,7 +2030,7 @@ index 7f5fe7252ac4..974e9d23c648 100644
 From d4e78c0e92bec79bacd6e73d4df5a663eb1c2cc4 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Fri, 17 Jun 2022 11:27:38 +0200
-Subject: [PATCH 27/37] [rockchip_ebc] even if its not really clear if it is
+Subject: [PATCH 27/41] [rockchip_ebc] even if its not really clear if it is
  required, also sync the next-buffer to the cpu before using it
 
 ---
@@ -2061,7 +2061,7 @@ index 974e9d23c648..97173aeed53c 100644
 From ecbf9a93fc89fa8129bdd6ef0db4e39988d65d3d Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Fri, 17 Jun 2022 12:41:15 +0200
-Subject: [PATCH 28/37] [rockchip_ebc] enable drawing of clips not aligned to
+Subject: [PATCH 28/41] [rockchip_ebc] enable drawing of clips not aligned to
  full bytes (i.e. even start/end coordinates).
 
 Needs more testing.
@@ -2200,7 +2200,7 @@ index 97173aeed53c..4baefc8b5496 100644
 From cbe09b1efa307db0a5dd927c74f23663c2159494 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Fri, 17 Jun 2022 12:41:58 +0200
-Subject: [PATCH 29/37] [rockchip_ebc] move the queue_lock a little bit further
+Subject: [PATCH 29/41] [rockchip_ebc] move the queue_lock a little bit further
  up. Not sure if this is required, but this way we lock as soon as possible in
  the update routine.
 
@@ -2239,7 +2239,7 @@ index 4baefc8b5496..15b14acbfd2b 100644
 From af9c4d804c7ef2efdb5ee2730b2fd9d6c6974e63 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Mon, 20 Jun 2022 13:19:31 +0200
-Subject: [PATCH 30/37] [rockchip_ebc] 	* add a sysfs handler 	 
+Subject: [PATCH 30/41] [rockchip_ebc] 	* add a sysfs handler 	 
  (/sys/module/rockchip_ebc/parameters/limit_fb_blits) to limit the numbers of
  framebuffer blits. The default value of -1 does not limit blits at all. Can
  be used to investigate the buffer contents while debugging complex drawing
@@ -2450,7 +2450,7 @@ index befa62a68be0..5e8c87ae6af2 100644
 From d238a50853c30c65bee6e7a6a2d5565250980247 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Wed, 22 Jun 2022 10:17:10 +0200
-Subject: [PATCH 31/37] [rockchip_ebc] fix compiler warnings by moving variable
+Subject: [PATCH 31/41] [rockchip_ebc] fix compiler warnings by moving variable
  declaration to the top of the functions
 
 ---
@@ -2551,7 +2551,7 @@ index 278a35209044..d0670d482432 100644
 From e0434586f31db9beb962f8185fd567a1eae4a879 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Wed, 22 Jun 2022 10:19:06 +0200
-Subject: [PATCH 32/37] [rockchip_ebc] add debug printk statements but comment
+Subject: [PATCH 32/41] [rockchip_ebc] add debug printk statements but comment
  them out
 
 ---
@@ -2676,7 +2676,7 @@ index d0670d482432..491efd20f2e9 100644
 From bb4e13779de8d427868da024e781cff625e8287b Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Wed, 22 Jun 2022 10:21:42 +0200
-Subject: [PATCH 33/37] [rockchip_ebc] add commented-out spin_unlock to
+Subject: [PATCH 33/41] [rockchip_ebc] add commented-out spin_unlock to
  indicate old position
 
 ---
@@ -2702,7 +2702,7 @@ index 491efd20f2e9..351cae36bc4d 100644
 From 340c5eec973094f937d67527f868a46e2729cbba Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Wed, 22 Jun 2022 10:22:18 +0200
-Subject: [PATCH 34/37] [rockchip_ebc] not sure if this has any bad
+Subject: [PATCH 34/41] [rockchip_ebc] not sure if this has any bad
  consequences, but also wait on the hardware to finish the first frame
 
 ---
@@ -2740,7 +2740,7 @@ index 351cae36bc4d..e8d108727c75 100644
 From 3242d3d78bdc68361c165838f59724732cdbb0e3 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Wed, 22 Jun 2022 10:23:03 +0200
-Subject: [PATCH 35/37] [rockchip_ebc] hopefully fix the blitting routine for
+Subject: [PATCH 35/41] [rockchip_ebc] hopefully fix the blitting routine for
  odd start/end coordinates and panel_reflection=1
 
 ---
@@ -2791,7 +2791,7 @@ index e8d108727c75..f30010151c02 100644
 From 2b41563e202a5d55e19fad1164ecfc89b1e43210 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Wed, 22 Jun 2022 10:24:07 +0200
-Subject: [PATCH 36/37] [rockchip_ebc] add commented-out printk statements
+Subject: [PATCH 36/41] [rockchip_ebc] add commented-out printk statements
 
 ---
  drivers/gpu/drm/rockchip/rockchip_ebc.c | 5 ++---
@@ -2829,7 +2829,7 @@ index f30010151c02..a72d1e219691 100644
 From 917a31bb1ac2eb3adbe272fd79d40ac8b21169d9 Mon Sep 17 00:00:00 2001
 From: Maximilian Weigand <mweigand@mweigand.net>
 Date: Wed, 22 Jun 2022 10:25:04 +0200
-Subject: [PATCH 37/37] [rockchip_ebc] add commented-out old position of lock
+Subject: [PATCH 37/41] [rockchip_ebc] add commented-out old position of lock
 
 ---
  drivers/gpu/drm/rockchip/rockchip_ebc.c | 1 +
@@ -2847,6 +2847,181 @@ index a72d1e219691..62daf5c107c4 100644
  	list_splice_tail_init(&ebc_plane_state->areas, &ctx->queue);
  	spin_unlock(&ctx->queue_lock);
  
+-- 
+2.30.2
+
+
+From ef6c987fb94885c3678fb5ece754d813b129117a Mon Sep 17 00:00:00 2001
+From: Maximilian Weigand <mweigand@mweigand.net>
+Date: Thu, 23 Jun 2022 20:16:15 +0200
+Subject: [PATCH 38/41] [rockchip_ebc] hopefully fix blitting of
+ odd-starting-coordinate areas
+
+---
+ drivers/gpu/drm/rockchip/rockchip_ebc.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/rockchip/rockchip_ebc.c b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+index 62daf5c107c4..b7358a350655 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_ebc.c
++++ b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+@@ -1526,7 +1526,8 @@ static bool rockchip_ebc_blit_fb(const struct rockchip_ebc_ctx *ctx,
+ 				// want to keep here
+ 				// keep 4 higher bits
+ 				tmp_pixel = *dbuf & 0b11110000;
+-				rgb1 = tmp_pixel;
++				// shift by four pixels to the lower bits
++				rgb1 = tmp_pixel >> 4;
+ 			}
+ 
+ 			gray = rgb0 | rgb1 << 4;
+-- 
+2.30.2
+
+
+From a09adf1dcfa95c5f7a2254a9354114d4eedf3401 Mon Sep 17 00:00:00 2001
+From: Maximilian Weigand <mweigand@mweigand.net>
+Date: Fri, 24 Jun 2022 11:34:28 +0200
+Subject: [PATCH 39/41] [rockchip_ebc] fix locking in global refresh function
+ and use DRM_EPD_WF_GC16 waveform for auto global refreshes
+
+---
+ drivers/gpu/drm/rockchip/rockchip_ebc.c | 20 +++++++++++++-------
+ 1 file changed, 13 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/rockchip/rockchip_ebc.c b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+index b7358a350655..479a84da80c0 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_ebc.c
++++ b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+@@ -413,14 +413,11 @@ static void rockchip_ebc_global_refresh(struct rockchip_ebc *ebc,
+ 
+ 	spin_lock(&ctx->queue_lock);
+ 	list_splice_tail_init(&ctx->queue, &areas);
+-	spin_unlock(&ctx->queue_lock);
+-
+ 	memcpy(ctx->next, ctx->final, gray4_size);
++	spin_unlock(&ctx->queue_lock);
+ 
+-	dma_sync_single_for_device(dev, next_handle,
+-				   gray4_size, DMA_TO_DEVICE);
+-	dma_sync_single_for_device(dev, prev_handle,
+-				   gray4_size, DMA_TO_DEVICE);
++	dma_sync_single_for_device(dev, next_handle, gray4_size, DMA_TO_DEVICE);
++	dma_sync_single_for_device(dev, prev_handle, gray4_size, DMA_TO_DEVICE);
+ 
+ 	reinit_completion(&ebc->display_end);
+ 	regmap_write(ebc->regmap, EBC_CONFIG_DONE,
+@@ -1146,7 +1143,16 @@ static int rockchip_ebc_refresh_thread(void *data)
+ 				spin_lock(&ebc->refresh_once_lock);
+ 				ebc->do_one_full_refresh = false;
+ 				spin_unlock(&ebc->refresh_once_lock);
+-				rockchip_ebc_refresh(ebc, ctx, true, default_waveform);
++/* 				 * @DRM_EPD_WF_A2: Fast transitions between black and white only */
++/* 				 * @DRM_EPD_WF_DU: Transitions 16-level grayscale to monochrome */
++/* 				 * @DRM_EPD_WF_DU4: Transitions 16-level grayscale to 4-level grayscale */
++/* 				 * @DRM_EPD_WF_GC16: High-quality but flashy 16-level grayscale */
++/* 				 * @DRM_EPD_WF_GCC16: Less flashy 16-level grayscale */
++/* 				 * @DRM_EPD_WF_GL16: Less flashy 16-level grayscale */
++/* 				 * @DRM_EPD_WF_GLR16: Less flashy 16-level grayscale, plus anti-ghosting */
++/* 				 * @DRM_EPD_WF_GLD16: Less flashy 16-level grayscale, plus anti-ghosting */
++				// Not sure why only the GC16 is able to clear the ghosts from A2
++				rockchip_ebc_refresh(ebc, ctx, true, DRM_EPD_WF_GC16);
+ 			} else {
+ 				rockchip_ebc_refresh(ebc, ctx, false, default_waveform);
+ 			}
+-- 
+2.30.2
+
+
+From 55a53432c02b62613b546c561711096b8ae25b2a Mon Sep 17 00:00:00 2001
+From: Maximilian Weigand <mweigand@mweigand.net>
+Date: Sat, 9 Jul 2022 20:38:21 +0200
+Subject: [PATCH 40/41] [rockchip_ebc] add a naive black&white mode to the ebc
+ driver and use the default_waveform for global_refreshes
+
+---
+ drivers/gpu/drm/rockchip/rockchip_ebc.c | 26 ++++++++++++++++++++++++-
+ 1 file changed, 25 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/rockchip/rockchip_ebc.c b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+index 479a84da80c0..db08d12ff143 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_ebc.c
++++ b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+@@ -201,6 +201,14 @@ static int limit_fb_blits = -1;
+ module_param(limit_fb_blits, int, S_IRUGO|S_IWUSR);
+ MODULE_PARM_DESC(split_area_limit, "how many fb blits to allow. -1 does not limit");
+ 
++static bool bw_mode = false;
++module_param(bw_mode, bool, S_IRUGO|S_IWUSR);
++MODULE_PARM_DESC(bw_mode, "black & white mode");
++
++static int bw_threshold = 7;
++module_param(bw_threshold, int, S_IRUGO|S_IWUSR);
++MODULE_PARM_DESC(bw_threshold, "black and white threshold");
++
+ DEFINE_DRM_GEM_FOPS(rockchip_ebc_fops);
+ 
+ static int ioctl_trigger_global_refresh(struct drm_device *dev, void *data,
+@@ -1152,7 +1160,8 @@ static int rockchip_ebc_refresh_thread(void *data)
+ /* 				 * @DRM_EPD_WF_GLR16: Less flashy 16-level grayscale, plus anti-ghosting */
+ /* 				 * @DRM_EPD_WF_GLD16: Less flashy 16-level grayscale, plus anti-ghosting */
+ 				// Not sure why only the GC16 is able to clear the ghosts from A2
+-				rockchip_ebc_refresh(ebc, ctx, true, DRM_EPD_WF_GC16);
++				// rockchip_ebc_refresh(ebc, ctx, true, DRM_EPD_WF_GC16);
++				rockchip_ebc_refresh(ebc, ctx, true, default_waveform);
+ 			} else {
+ 				rockchip_ebc_refresh(ebc, ctx, false, default_waveform);
+ 			}
+@@ -1536,6 +1545,21 @@ static bool rockchip_ebc_blit_fb(const struct rockchip_ebc_ctx *ctx,
+ 				rgb1 = tmp_pixel >> 4;
+ 			}
+ 
++			if (bw_mode){
++				// convert to lack and white
++				if (rgb0 >= bw_threshold){
++					rgb0 = 15;
++				} else {
++					rgb0 = 0;
++				}
++
++				if (rgb1 >= bw_threshold){
++					rgb1 = 15;
++				} else {
++					rgb1 = 0;
++				}
++			}
++
+ 			gray = rgb0 | rgb1 << 4;
+ 			changed |= gray ^ *dbuf;
+ 			*dbuf++ = gray;
+-- 
+2.30.2
+
+
+From 8d8c7744be03d1698ebef3a74378bda0292811db Mon Sep 17 00:00:00 2001
+From: Maximilian Weigand <mweigand@mweigand.net>
+Date: Sat, 30 Jul 2022 21:47:33 +0200
+Subject: [PATCH 41/41] [rockchip_ebc] declare the waveform binary data as a
+ firmware file so it will be included automatically into the initrd images
+
+---
+ drivers/gpu/drm/rockchip/rockchip_ebc.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/rockchip/rockchip_ebc.c b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+index db08d12ff143..990b53ef3e86 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_ebc.c
++++ b/drivers/gpu/drm/rockchip/rockchip_ebc.c
+@@ -140,6 +140,9 @@
+ #define EBC_REFRESH_TIMEOUT		msecs_to_jiffies(3000)
+ #define EBC_SUSPEND_DELAY_MS		2000
+ 
++#define EBC_FIRMWARE		"rockchip/ebc.wbf"
++MODULE_FIRMWARE(EBC_FIRMWARE);
++
+ struct rockchip_ebc {
+ 	struct clk			*dclk;
+ 	struct clk			*hclk;
 -- 
 2.30.2
 
