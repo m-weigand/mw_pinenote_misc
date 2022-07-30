@@ -1,6 +1,4 @@
 #!/usr/bin/env sh
-# target="20220518"
-# target="latest"
 target="graphics"
 
 cd linux/pack
