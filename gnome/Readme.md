@@ -65,15 +65,15 @@
 
 * dconf update
 
-* Copy pnhelper extension::
+* Copy pnhelper extension to
 
- 	/usr/share/gnome-shell/extensions/pnhelper@m-weigand.github.com/
+ 		/usr/share/gnome-shell/extensions/pnhelper@m-weigand.github.com/
 
-* /etc/lightdm/lightdm.conf
+* /etc/lightdm/lightdm.conf::
 
-	[Seat:*]
-	autologin-guest = false
-	autologin-user = test3
-	autologin-user-timeout=0
-	autologin-session=gnome-wayland
+		[Seat:*]
+		autologin-guest = false
+		autologin-user = test3
+		autologin-user-timeout=0
+		autologin-session=gnome-wayland
 
