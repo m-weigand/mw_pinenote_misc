@@ -19,10 +19,11 @@ Use (this)[../../custom_kernel/compile.sh] script to compile the kernel.
 Use (this)[../../initrd/gen_uboot_image.sh] script to generate an initrd image
 using dracut.
 
-## New features (as of 2022.July.12)
+## New features (as of 2022.August.04)
 
+* 'Fixed' panel_reflection=0 screen presentation
 * Black and white mode
-* Area splititng (improves xournalpp performance)
+* Area splitting (improves xournalpp performance)
 * Allow odd start/end coordinates for clips (i.e., 1x1 pixel blits)
 * Auto refresh based on partially refreshed screen area
 * Adds an ioctl to force a global refresh on next update
@@ -39,7 +40,7 @@ Check if the patch can be correctly applied:
 
 	cd linux
 	git checkout pinenote-next
-	patch --dry-run -p1 < rockchip_ebc_patches_mw_20220623.patch
+	patch --dry-run -p1 < rockchip_ebc_patches_mw_20220804.patch
 
 Then remove the **--dry-run** option and rerun to actually apply.
 
@@ -75,12 +76,12 @@ to 0 (black) and all values larger than, or equal to, 7 will be cast to 15
 
 Enabling automatic global (full screen) refreshes:
 
-echo 1 > /sys/module/rockchip_ebc/parameters/auto_refresh
+	echo 1 > /sys/module/rockchip_ebc/parameters/auto_refresh
 
 Global refreshes are triggered based on the area drawing using partial
 refreshes, in units of total screen area.
 
-echo 2 > /sys/module/rockchip_ebc/parameters/refresh_threshold
+	echo 2 > /sys/module/rockchip_ebc/parameters/refresh_threshold
 
 therefore will trigger a globlal refresh whenever 2 screen areas where drawn.
 
@@ -88,6 +89,12 @@ The threshold should be set according to the application used. For example,
 evince and xournalpp really like to redraw the screen very often, so a value of
 20 suffices.
 Other require lower numbers.
+
+The waveform to use for global refreshes can be set via
+
+	echo 4 > /sys/module/rockchip_ebc/parameters/refresh_waveform
+
+A value of 4 is the default.
 
 ### Off-screen
 
