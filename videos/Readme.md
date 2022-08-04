@@ -1,5 +1,6 @@
 # Pinenote Videos
 
+* Playing a dithered version of (The Daily Dweebs)[https://studio.blender.org/films/dailydweebs/] (20210804_playing_dithered_video_small.mp4)[20210804_playing_dithered_video_small.mp4]
 * Firefox and mouse usage in black and white mode: (20220702_firefox_scrolling_mouse_bw_small.mp4)[20220702_firefox_scrolling_mouse_bw_small.mp4]
 * Annotating a PDF in Xournalpp: (20220702_xpp_a2_annotating_small.mp4)[20220702_xpp_a2_annotating_small.mp4]
 * (20220701_xpp_a2_5phases_small.mp4)[20220701_xpp_a2_5phases_small.mp4]
