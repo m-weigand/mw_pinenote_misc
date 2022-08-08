@@ -158,11 +158,11 @@ class Extension {
 		});
 		this._indicator.menu.addMenuItem(item);
 
-		item = new PopupMenu.PopupMenuItem(_('DU Waveform'));
-		item.connect('activate', () => {
-			this._set_waveform(2);
-		});
-		this._indicator.menu.addMenuItem(item);
+		// item = new PopupMenu.PopupMenuItem(_('DU Waveform'));
+		// item.connect('activate', () => {
+		// 	this._set_waveform(2);
+		// });
+		// this._indicator.menu.addMenuItem(item);
 
 		item = new PopupMenu.PopupMenuItem(_('GC16 Waveform'));
 		item.connect('activate', () => {
@@ -170,11 +170,50 @@ class Extension {
 		});
 		this._indicator.menu.addMenuItem(item);
 
-		item = new PopupMenu.PopupMenuItem(_('DU4 Waveform'));
-		item.connect('activate', () => {
-			this._set_waveform(7);
+// 		item = new PopupMenu.PopupMenuItem(_('DU4 Waveform'));
+// 		item.connect('activate', () => {
+// 			this._set_waveform(7);
+// 		});
+// 		this._indicator.menu.addMenuItem(item);
+	}
+
+	_add_auto_refresh_button(){
+		let filename = '/sys/module/rockchip_ebc/parameters/auto_refresh'
+		let auto_refresh = this._get_content(filename);
+
+		log(`add: auto refresh state: ${auto_refresh}`);
+
+		if(auto_refresh == 'N'){
+			this.mitem_auto_refresh = new PopupMenu.PopupMenuItem(_('Enable Autorefresh'));
+		} else {
+			this.mitem_auto_refresh = new PopupMenu.PopupMenuItem(_('Disable Autorefresh'));
+		}
+		this.mitem_auto_refresh.connect('activate', () => {
+			this.toggle_auto_refresh();
 		});
-		this._indicator.menu.addMenuItem(item);
+
+		this._indicator.menu.addMenuItem(this.mitem_auto_refresh);
+	}
+
+	toggle_auto_refresh(){
+		log("Toggling atuo refresh");
+		let filename = '/sys/module/rockchip_ebc/parameters/auto_refresh'
+		let auto_refresh = this._get_content(filename);
+		log(`toggle: auto refresh state: ${auto_refresh}`);
+
+		if(auto_refresh == 'N'){
+			auto_refresh = 1;
+			this.mitem_auto_refresh.label.set_text('Disable Autorefresh');
+		} else {
+			auto_refresh = 0;
+			this.mitem_auto_refresh.label.set_text('Enable Autorefresh');
+		}
+
+		this._write_to_sysfs_file(
+			filename,
+			auto_refresh
+		);
+
 	}
 
     enable() {
@@ -205,7 +244,14 @@ class Extension {
 		});
 		this._indicator.menu.addMenuItem(item);
 
-		this.mitem_bw_mode = new PopupMenu.PopupMenuItem(_('Black & White'));
+		let filename = '/sys/module/rockchip_ebc/parameters/bw_mode'
+		let bw_current_mode = this._get_content(filename);
+
+		if(bw_current_mode == 'N'){
+			this.mitem_bw_mode = new PopupMenu.PopupMenuItem(_('Black & White'));
+		} else {
+			this.mitem_bw_mode = new PopupMenu.PopupMenuItem(_('Grayscale Mode'));
+		}
 		this.mitem_bw_mode.connect('activate', () => {
 			this.toggle_bw();
 		});
@@ -213,6 +259,7 @@ class Extension {
 		this._indicator.menu.addMenuItem(this.mitem_bw_mode);
 
 		this._add_bw_slider();
+		this._add_auto_refresh_button();
 		this._add_waveform_buttons()
 
 		// ////////////////////////////////////////////////////////////////////
@@ -231,31 +278,34 @@ class Extension {
 
     }
 
-	toggle_bw(){
-		log("BW BW BW\n");
-		// this._write_to_sysfs_file(
-		// 	'/sys/module/drm/parameters/debug',
-		// 	1
-		// )
-
-		let filename = '/sys/module/rockchip_ebc/parameters/bw_mode'
+	_get_content(sysfs_file){
 		// read current value
-		const file = Gio.File.new_for_path(filename);
+		const file = Gio.File.new_for_path(sysfs_file);
 		const [, contents, etag] = file.load_contents(null);
 		const ByteArray = imports.byteArray;
 		const contentsString = ByteArray.toString(contents);
 		log(`Result: ${contents}`);
 		log(`orig: ${contents}`);
+
+		return contentsString[0];
+	}
+
+	toggle_bw(){
+		log("Toggling black&white mode\n");
+		let filename = '/sys/module/rockchip_ebc/parameters/bw_mode'
 		let new_value;
 		let new_wf;
 		let refresh_threshold;
+		let bw_current_mode = this._get_content(filename);
 
-		if(contentsString[0] == 'N'){
+		if(bw_current_mode == 'N'){
 			log('toggling black and white mode');
 			// fast mode
 			new_value = 1;
 			new_wf = 1;
-			refresh_threshold = 2
+			// now that we have dithering, dont't update that often anymore
+			// refresh_threshold = 2
+			refresh_threshold = 6
 			this.mitem_bw_mode.label.set_text('Grayscale Mode');
 		}
 		else{
