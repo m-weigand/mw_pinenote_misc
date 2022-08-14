@@ -17,6 +17,12 @@ git apply ../a24cb29eca1a72afb1037f5468d3036b34ea1b66.patch
 git apply ../d6bb8a6b5a5210fea70bc590350bfca3a9e3a7a2.patch
 cd ..
 
+# suspend fix for the PMIC
+wget -nc https://gitlab.com/hrdl/pinenote-shared/-/raw/main/patches/linux/0001-Rudimentary-attempt-to-keep-PMIC-usable-after-suspen.patch
+cd linux
+git apply ../0001-Rudimentary-attempt-to-keep-PMIC-usable-after-suspen.patch
+cd ..
+
 # My modifications
 wget -nc https://raw.githubusercontent.com/m-weigand/mw_pinenote_misc/main/custom_kernel/pinenote_defconfig.patch
 wget -nc https://raw.githubusercontent.com/m-weigand/mw_pinenote_misc/main/custom_kernel/rk3566-pinenote_dtsi.patch
