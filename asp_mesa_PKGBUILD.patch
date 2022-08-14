@@ -1,0 +1,103 @@
+diff --git a/PKGBUILD b/PKGBUILD
+index 949b379..5a28d19 100644
+--- a/PKGBUILD
++++ b/PKGBUILD
+@@ -4,11 +4,11 @@
+ # Contributor: Andreas Radke <andyrtr@archlinux.org>
+ 
+ pkgbase=mesa
+-pkgname=('vulkan-mesa-layers' 'opencl-mesa' 'vulkan-intel' 'vulkan-radeon' 'vulkan-swrast' 'libva-mesa-driver' 'mesa-vdpau' 'mesa')
++pkgname=('vulkan-mesa-layers' 'opencl-mesa' 'vulkan-swrast' 'libva-mesa-driver' 'mesa-vdpau' 'mesa')
+ pkgdesc="An open-source implementation of the OpenGL specification"
+ pkgver=22.1.5
+ pkgrel=1
+-arch=('x86_64')
++arch=('x86_64' 'aarch64')
+ makedepends=('python-mako' 'libxml2' 'libx11' 'xorgproto' 'libdrm' 'libxshmfence' 'libxxf86vm'
+              'libxdamage' 'libvdpau' 'libva' 'wayland' 'wayland-protocols' 'zstd' 'elfutils' 'llvm'
+              'libomxil-bellagio' 'libclc' 'clang' 'libglvnd' 'libunwind' 'lm_sensors' 'libxrandr'
+@@ -17,10 +17,12 @@ url="https://www.mesa3d.org/"
+ license=('custom')
+ options=('debug')
+ source=(https://mesa.freedesktop.org/archive/mesa-${pkgver}.tar.xz{,.sig}
++	'https://raw.githubusercontent.com/0cc4m/pinenote-misc/main/mesa-archlinux-arm/mesa/rockchip_ebc.patch'
+         LICENSE)
+-sha512sums=('1aa72cd5b61635d489904944e5d80b1d923a38ffbd295341e6b30c492e469463bc4d0b63f74b071580572aec3a2cdfe19b3f2919ebc0fb4bcc35e114db925abc'
++sha512sums=('SKIP'
+             'SKIP'
+-            'f9f0d0ccf166fe6cb684478b6f1e1ab1f2850431c06aa041738563eb1808a004e52cdec823c103c9e180f03ffc083e95974d291353f0220fe52ae6d4897fecc7')
++	    'SKIP'
++            'SKIP')
+ validpgpkeys=('8703B6700E7EE06D7A39B8D6EDAE37B02CEB490D'  # Emil Velikov <emil.l.velikov@gmail.com>
+               '946D09B5E4C9845E63075FF1D961C596A7203456'  # Andres Gomez <tanty@igalia.com>
+               'E3E8F480C52ADD73B278EE78E1ECBE07D7D70895'  # Juan Antonio Suárez Romero (Igalia, S.L.) <jasuarez@igalia.com>
+@@ -30,7 +32,7 @@ validpgpkeys=('8703B6700E7EE06D7A39B8D6EDAE37B02CEB490D'  # Emil Velikov <emil.l
+ 
+ prepare() {
+   cd mesa-$pkgver
+-
++  patch -p1 < "$srcdir/rockchip_ebc.patch"
+ }
+ 
+ build() {
+@@ -38,16 +40,12 @@ build() {
+   CFLAGS+=' -g1'
+   CXXFLAGS+=' -g1'
+ 
+-  # https://gitlab.freedesktop.org/mesa/mesa/-/issues/6229
+-  CFLAGS+=' -mtls-dialect=gnu'
+-  CXXFLAGS+=' -mtls-dialect=gnu'
+-
+   arch-meson mesa-$pkgver build \
+     -D b_ndebug=true \
+     -D platforms=x11,wayland \
+-    -D gallium-drivers=r300,r600,radeonsi,nouveau,virgl,svga,swrast,iris,crocus,zink,d3d12 \
+-    -D vulkan-drivers=amd,intel,swrast \
+-    -D vulkan-layers=device-select,intel-nullhw,overlay \
++    -D gallium-drivers=r600,virgl,svga,swrast,panfrost \
++    -D vulkan-drivers=swrast \
++    -D vulkan-layers=device-select,overlay \
+     -D dri3=enabled \
+     -D egl=enabled \
+     -D gallium-extra-hud=true \
+@@ -69,7 +67,7 @@ build() {
+     -D osmesa=true \
+     -D shared-glapi=enabled \
+     -D microsoft-clc=disabled \
+-    -D valgrind=enabled
++    -D valgrind=disabled
+ 
+   # Print config
+   meson configure build
+@@ -119,31 +117,6 @@ package_opencl-mesa() {
+   install -m644 -Dt "${pkgdir}/usr/share/licenses/${pkgname}" LICENSE
+ }
+ 
+-package_vulkan-intel() {
+-  pkgdesc="Intel's Vulkan mesa driver"
+-  depends=('wayland' 'libx11' 'libxshmfence' 'libdrm' 'zstd' 'systemd-libs')
+-  optdepends=('vulkan-mesa-layers: additional vulkan layers')
+-  provides=('vulkan-driver')
+-
+-  _install fakeinstall/usr/share/vulkan/icd.d/intel_icd*.json
+-  _install fakeinstall/usr/lib/libvulkan_intel.so
+-
+-  install -m644 -Dt "${pkgdir}/usr/share/licenses/${pkgname}" LICENSE
+-}
+-
+-package_vulkan-radeon() {
+-  pkgdesc="Radeon's Vulkan mesa driver"
+-  depends=('wayland' 'libx11' 'libxshmfence' 'libelf' 'libdrm' 'llvm-libs' 'systemd-libs')
+-  optdepends=('vulkan-mesa-layers: additional vulkan layers')
+-  provides=('vulkan-driver')
+-
+-  _install fakeinstall/usr/share/drirc.d/00-radv-defaults.conf
+-  _install fakeinstall/usr/share/vulkan/icd.d/radeon_icd*.json
+-  _install fakeinstall/usr/lib/libvulkan_radeon.so
+-
+-  install -m644 -Dt "${pkgdir}/usr/share/licenses/${pkgname}" LICENSE
+-}
+-
+ package_vulkan-swrast() {
+   pkgdesc="Vulkan software rasteriser driver"
+   depends=('wayland' 'libx11' 'libxshmfence' 'libdrm' 'zstd' 'llvm-libs' 'systemd-libs' 'libunwind')

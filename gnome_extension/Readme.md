@@ -16,7 +16,7 @@ care.**
 
 * Copy to the local extension directory
 
-	rsync -avh pnhelper@m-weigand.github.com/ /home/mweigand/.local/share/gnome-shell/extensions/pnhelper@m-weigand.github.com/
+	rsync -avh pnhelper@m-weigand.github.com/ $HOME/.local/share/gnome-shell/extensions/pnhelper@m-weigand.github.com/
 
 * enable in gnome extension manager
 * restart gnome

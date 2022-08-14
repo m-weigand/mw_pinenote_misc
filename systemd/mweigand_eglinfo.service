@@ -2,6 +2,8 @@
 Description=Mweigand service
 
 [Service]
+Type=oneshot
+RemainAfterExit=true
 ExecStart=/usr/bin/eglinfo
 
 [Install]
