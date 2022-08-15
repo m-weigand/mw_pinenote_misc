@@ -11,18 +11,17 @@ See the **Usage** section below for information on how to use the new features.
 
 ## Compiling
 
-Use (this)[../../custom_kernel/clone_and_prepare_git.sh] script to clone the
+* Use the [custom_kernel/clone_and_prepare_git.sh](../../custom_kernel/clone_and_prepare_git.sh) script to clone the
 kernel repo and apply some patches.
-
-Use (this)[../../custom_kernel/compile.sh] script to compile the kernel.
-
-Use (this)[../../initrd/gen_uboot_image.sh] script to generate an initrd image
+* Use the [custom_kernel/compile.sh](../../custom_kernel/compile.sh) script to compile the kernel.
+* Use the [gen_uboot_image.sh](../../initrd/gen_uboot_image.sh) script to generate an initrd image
 using dracut.
 
-## New features (as of 2022.August.04)
+## New features (as of 2022.August.08)
 
 * 'Fixed' panel_reflection=0 screen presentation
 * Black and white mode
+  * The BW mode now uses dithering for better presentation performance
 * Area splitting (improves xournalpp performance)
 * Allow odd start/end coordinates for clips (i.e., 1x1 pixel blits)
 * Auto refresh based on partially refreshed screen area
@@ -40,7 +39,7 @@ Check if the patch can be correctly applied:
 
 	cd linux
 	git checkout pinenote-next
-	patch --dry-run -p1 < rockchip_ebc_patches_mw_20220804.patch
+	patch --dry-run -p1 < rockchip_ebc_patches_mw_20220808.patch
 
 Then remove the **--dry-run** option and rerun to actually apply.
 
