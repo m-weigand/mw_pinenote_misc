@@ -216,6 +216,42 @@ class Extension {
 
 	}
 
+	_add_dither_invert_button(){
+		let filename = '/sys/module/rockchip_ebc/parameters/bw_dither_invert'
+		let bw_dither_invert = this._get_content(filename);
+
+		if(bw_dither_invert == 'N'){
+			this.mitem_bw_dither_invert = new PopupMenu.PopupMenuItem(_('BW Invert On'));
+		} else {
+			this.mitem_bw_dither_invert = new PopupMenu.PopupMenuItem(_('BW Invert Off'));
+		}
+		this.mitem_bw_dither_invert.connect('activate', () => {
+			this.toggle_bw_dither_invert();
+		});
+
+		this._indicator.menu.addMenuItem(this.mitem_bw_dither_invert);
+	}
+
+	toggle_bw_dither_invert(){
+		let filename = '/sys/module/rockchip_ebc/parameters/bw_dither_invert'
+		let bw_dither_invert = this._get_content(filename);
+		log(`Toggling dither invert (is: ${bw_dither_invert})`);
+
+		if(bw_dither_invert == 0){
+			bw_dither_invert = 1;
+			this.mitem_bw_dither_invert.label.set_text('BW Invert Off');
+		} else {
+			bw_dither_invert = 0;
+			this.mitem_bw_dither_invert.label.set_text('BW Invert On');
+		}
+		log(`new value: ${bw_dither_invert})`);
+
+		this._write_to_sysfs_file(
+			filename,
+			bw_dither_invert
+		);
+	}
+
     enable() {
         log(`enabling ${Me.metadata.name}`);
 
@@ -259,6 +295,7 @@ class Extension {
 		this._indicator.menu.addMenuItem(this.mitem_bw_mode);
 
 		this._add_bw_slider();
+		this._add_dither_invert_button();
 		this._add_auto_refresh_button();
 		this._add_waveform_buttons()
 
