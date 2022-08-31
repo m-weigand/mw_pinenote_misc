@@ -50,7 +50,8 @@ function rotate_to(transform) {
     let builtin_monitor = state.builtin_monitor;
     let logical_monitor = state.get_logical_monitor_for(builtin_monitor.connector);
     logical_monitor.transform = transform;
-    let variant = state.pack_to_apply( BusUtils.Methods['temporary'] );
+    // let variant = state.pack_to_apply( BusUtils.Methods['temporary'] );
+    let variant = state.pack_to_apply( BusUtils.Methods['persistent'] );
     call_dbus_method('ApplyMonitorsConfig', variant);
 	log("rotation done");
 }
