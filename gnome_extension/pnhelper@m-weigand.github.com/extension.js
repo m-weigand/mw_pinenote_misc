@@ -99,6 +99,43 @@ class Extension {
 		}
 	}
 
+    _add_warm_indicator_to_main_gnome_menu() {
+        let filepath = "/sys/class/backlight/backlight_warm/brightness";
+        let max_filepath = "/sys/class/backlight/backlight_warm/max_brightness";
+
+        this._m_warm_backlight_slider = new PopupMenu.PopupBaseMenuItem({ activate: true });
+        this._warm_backlight_slider = new Slider.Slider(this._get_content(filepath) / this._get_content(max_filepath));
+        this._sliderChangedId = this._warm_backlight_slider.connect('notify::value',
+            this._warm_backlight_slider_changed.bind(this));
+        this._warm_backlight_slider.accessible_name = _("Warm Backlight Brightness");
+
+        const icon = new St.Icon({
+            icon_name: 'weather-clear-night-symbolic',
+            style_class: 'popup-menu-icon',
+        });
+        this._m_warm_backlight_slider.add(icon);
+        this._m_warm_backlight_slider.add_child(this._warm_backlight_slider);
+        this._m_warm_backlight_slider.connect('button-press-event', (actor, event) => {
+            return this._warm_backlight_slider.startDragging(event);
+        });
+        this._m_warm_backlight_slider.connect('key-press-event', (actor, event) => {
+            return this._warm_backlight_slider.emit('key-press-event', event);
+        });
+        this._m_warm_backlight_slider.connect('scroll-event', (actor, event) => {
+            return this._warm_backlight_slider.emit('scroll-event', event);
+        });
+
+        Main.panel.statusArea.aggregateMenu.menu.addMenuItem(this._m_warm_backlight_slider, 2);
+    }
+
+    _warm_backlight_slider_changed() {
+        let filepath = "/sys/class/backlight/backlight_warm/brightness";
+        let max_filepath = "/sys/class/backlight/backlight_warm/max_brightness";
+        let relative = this._warm_backlight_slider.value;
+        const brightness = Math.round(relative * this._get_content(max_filepath));
+        this._write_to_sysfs_file(filepath, brightness);
+    }
+
 	_add_bw_slider() {
         this.m_bw_slider = new PopupMenu.PopupBaseMenuItem({ activate: true });
 		this._indicator.menu.addMenuItem(this.m_bw_slider);
@@ -294,6 +331,7 @@ class Extension {
 
 		this._indicator.menu.addMenuItem(this.mitem_bw_mode);
 
+		this._add_warm_indicator_to_main_gnome_menu();
 		this._add_bw_slider();
 		this._add_dither_invert_button();
 		this._add_auto_refresh_button();
@@ -324,7 +362,7 @@ class Extension {
 		log(`Result: ${contents}`);
 		log(`orig: ${contents}`);
 
-		return contentsString[0];
+		return contentsString.replace(/[\n\r]/g, '');
 	}
 
 	toggle_bw(){
@@ -408,6 +446,8 @@ class Extension {
 
         this._indicator.destroy();
         this._indicator = null;
+        this._m_warm_backlight_slider.destroy();
+        this._m_warm_backlight_slider = null;
     }
 
 	rotate_screen(){
