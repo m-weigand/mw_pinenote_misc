@@ -11,9 +11,22 @@ A few videos can be found in [videos](videos)
 
 ## Kernel Patches
 
-I added a few small quality-of-live features to the eink display controller driver developed by smaeul (https://github.com/smaeul/linux/tree/rk35/pinenote-next). Those patches and corresponding documentation can be found here: [ebc patches](rockchip_ebc/patches/).
+I added a few small quality-of-live features to the eink display controller driver developed by smaeul (https://github.com/smaeul/linux/tree/rk35/pinenote-next).
 
-My kernel configuration and patch level can be reproduced using this script: [custom_kernel/clone_and_prepare_git.sh](custom_kernel/clone_and_prepare_git.sh). This includes my modifications.
+These changes can be found here: https://github.com/m-weigand/linux. Refer to
+the Readme in the **description** branch for explanation of the branches, but
+if you are looking for a kernel to use with the pinenote, I suggest to use this
+branch here:
+**https://github.com/m-weigand/linux/tree/mw/rk35/pinenote-next-t1**.
+
+My kernel configuration and patch level can be reproduced using this script:
+[custom_kernel/clone_and_prepare_git.sh](custom_kernel/clone_and_prepare_git.sh).
+This includes my ebc modifications, usb support and touch screen support.
+
+## Gnome extension
+
+A hacky GNOME extension that exposes some of the ebc parameters can be found in
+the gnome_extension subdirecty.
 
 ## Reading and modifying waveform files using Python
 
