@@ -6,7 +6,7 @@ easily switch between landscape and portrait mode (which is handy when
 switching between desktop work and ebook reading).
 
 **This is more a proof of concept as I never before worked with GJS. Use with
-care.**
+care. Suggestions are welcome!**
 
 **Naturally, merge requests (or rewrites) are very welcome!**
 
@@ -20,3 +20,7 @@ care.**
 
 * enable in gnome extension manager
 * restart gnome
+
+## TODO
+
+* Make sure the disable() function properly destroys all objects

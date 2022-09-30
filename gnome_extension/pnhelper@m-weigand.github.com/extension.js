@@ -76,6 +76,13 @@ class Extension {
     constructor() {
         this._indicator = null;
         this._indicator2 = null;
+
+		// the button widgets
+		this.bw_but_grayscale = new PopupMenu.PopupMenuItem(_('Grayscale Mode (v2)'));
+		this.bw_but_bw_dither = new PopupMenu.PopupMenuItem(_('BW+Dither Mode'));
+		this.bw_but_bw = new PopupMenu.PopupMenuItem(_('BW Mode'));
+        this.m_bw_slider = new PopupMenu.PopupBaseMenuItem({ activate: true });
+		this.mitem_bw_dither_invert = new PopupMenu.PopupMenuItem(_('BW Invert On'));
     }
 
 	_write_to_sysfs_file(filename, value){
@@ -136,8 +143,65 @@ class Extension {
         this._write_to_sysfs_file(filepath, brightness);
     }
 
+	_change_bw_mode(new_mode){
+		if (new_mode == 0){
+			this.bw_but_grayscale.visible = false;
+			this.bw_but_bw_dither.visible = true;
+			this.bw_but_bw.visible = true;
+			this.m_bw_slider.visible = false;
+			this.mitem_bw_dither_invert.visible = false;
+			// use GC16 waveform
+			this._set_waveform(4);
+		} else if (new_mode == 1){
+			// bw+dither
+			this.bw_but_grayscale.visible = true;
+			this.bw_but_bw_dither.visible = false;
+			this.bw_but_bw.visible = true;
+			this.m_bw_slider.visible = false;
+			this.mitem_bw_dither_invert.visible = true;
+			// use A2 waveform
+			this._set_waveform(1);
+		} else if (new_mode == 2){
+			// bw
+			this.bw_but_grayscale.visible = true;
+			this.bw_but_bw_dither.visible = true;
+			this.bw_but_bw.visible = false;
+			this.m_bw_slider.visible = true;
+			this.mitem_bw_dither_invert.visible = true;
+			// use A2 waveform
+			this._set_waveform(1);
+		}
+
+		this._write_to_sysfs_file(
+			'/sys/module/rockchip_ebc/parameters/bw_mode',
+			new_mode
+		);
+	}
+
+	_add_bw_buttons() {
+		// add three buttons for grayscale, bw, bw+dithering modes
+
+		// 1
+		this.bw_but_grayscale.connect('activate', () => {
+			this._change_bw_mode(0);
+		});
+		this._indicator.menu.addMenuItem(this.bw_but_grayscale);
+
+		// 2
+		this.bw_but_bw_dither.connect('activate', () => {
+			this._change_bw_mode(1);
+		});
+		this._indicator.menu.addMenuItem(this.bw_but_bw_dither);
+
+		// 3
+		this.bw_but_bw.connect('activate', () => {
+			this._change_bw_mode(2);
+		});
+		this._indicator.menu.addMenuItem(this.bw_but_bw);
+	}
+
 	_add_bw_slider() {
-        this.m_bw_slider = new PopupMenu.PopupBaseMenuItem({ activate: true });
+        // this.m_bw_slider = new PopupMenu.PopupBaseMenuItem({ activate: true });
 		this._indicator.menu.addMenuItem(this.m_bw_slider);
 
         this._bw_slider = new Slider.Slider(0.5);
@@ -258,9 +322,9 @@ class Extension {
 		let bw_dither_invert = this._get_content(filename);
 
 		if(bw_dither_invert == 'N'){
-			this.mitem_bw_dither_invert = new PopupMenu.PopupMenuItem(_('BW Invert On'));
+			this.mitem_bw_dither_invert.label.set_text('BW Invert On');
 		} else {
-			this.mitem_bw_dither_invert = new PopupMenu.PopupMenuItem(_('BW Invert Off'));
+			this.mitem_bw_dither_invert.label.set_text('BW Invert Off');
 		}
 		this.mitem_bw_dither_invert.connect('activate', () => {
 			this.toggle_bw_dither_invert();
@@ -301,7 +365,8 @@ class Extension {
 
         // Add an icon
         let icon = new St.Icon({
-            gicon: new Gio.ThemedIcon({name: 'face-laugh-symbolic'}),
+            //gicon: new Gio.ThemedIcon({name: 'face-laugh-symbolic'}),
+            gicon: new Gio.ThemedIcon({name: 'org.gnome.SimpleScan-symbolic'}),
             style_class: 'system-status-icon'
         });
         this._indicator.add_child(icon);
@@ -317,40 +382,15 @@ class Extension {
 		});
 		this._indicator.menu.addMenuItem(item);
 
-		let filename = '/sys/module/rockchip_ebc/parameters/bw_mode'
-		let bw_current_mode = this._get_content(filename);
-
-		if(bw_current_mode == 'N'){
-			this.mitem_bw_mode = new PopupMenu.PopupMenuItem(_('Black & White'));
-		} else {
-			this.mitem_bw_mode = new PopupMenu.PopupMenuItem(_('Grayscale Mode'));
-		}
-		this.mitem_bw_mode.connect('activate', () => {
-			this.toggle_bw();
-		});
-
-		this._indicator.menu.addMenuItem(this.mitem_bw_mode);
-
 		this._add_warm_indicator_to_main_gnome_menu();
+		this._add_bw_buttons();
 		this._add_bw_slider();
 		this._add_dither_invert_button();
 		this._add_auto_refresh_button();
 		this._add_waveform_buttons()
 
-		// ////////////////////////////////////////////////////////////////////
-        // let indicatorName2 = `${Me.metadata.name} Indicator2`;
-		// this._indicator2 = new PanelMenu.Button(0.0, indicatorName2, false);
-        // let icon2 = new St.Icon({
-        //     gicon: new Gio.ThemedIcon({name: 'face-laugh-symbolic'}),
-        //     style_class: 'system-status-icon'
-        // });
-        // this._indicator2.add_child(icon2);
-		// this._indicator2.connect('open-state-changed', () => {
-		// 	log('The button was clicked!');
-		// });
-
-        // Main.panel.addToStatusArea(indicatorName2, this._indicator2);
-
+		// activate default grayscale mode
+		this._change_bw_mode(0);
     }
 
 	_get_content(sysfs_file){
@@ -359,84 +399,8 @@ class Extension {
 		const [, contents, etag] = file.load_contents(null);
 		const ByteArray = imports.byteArray;
 		const contentsString = ByteArray.toString(contents);
-		log(`Result: ${contents}`);
-		log(`orig: ${contents}`);
 
 		return contentsString.replace(/[\n\r]/g, '');
-	}
-
-	toggle_bw(){
-		log("Toggling black&white mode\n");
-		let filename = '/sys/module/rockchip_ebc/parameters/bw_mode'
-		let new_value;
-		let new_wf;
-		let refresh_threshold;
-		let bw_current_mode = this._get_content(filename);
-
-		if(bw_current_mode == 'N'){
-			log('toggling black and white mode');
-			// fast mode
-			new_value = 1;
-			new_wf = 1;
-			// now that we have dithering, dont't update that often anymore
-			// refresh_threshold = 2
-			refresh_threshold = 6
-			this.mitem_bw_mode.label.set_text('Grayscale Mode');
-		}
-		else{
-			log('toggling back to standard mode');
-			// standard mode
-			new_value = 0;
-			new_wf = 4;
-			refresh_threshold = 20
-			this.mitem_bw_mode.label.set_text('Black & White');
-		}
-
-		this._write_to_sysfs_file(
-			'/sys/module/rockchip_ebc/parameters/refresh_threshold',
-			refresh_threshold
-		);
-
-		let wf_file;
-		wf_file = '/sys/module/rockchip_ebc/parameters/default_waveform';
-
-		// todo: use async functions
-		try {
-			// The process starts running immediately after this function is called. Any
-			// error thrown here will be a result of the process failing to start, not
-			// the success or failure of the process itself.
-			let proc = Gio.Subprocess.new(
-				// The program and command options are passed as a list of arguments
-				['/bin/sh', '-c', `echo ${new_value} > ` + filename],
-					// /sys/module/drm/parameters/debug'],
-
-				// The flags control what I/O pipes are opened and how they are directed
-				Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE
-			);
-
-			// Once the process has started, you can end it with `force_exit()`
-			// proc.force_exit();
-		} catch (e) {
-			logError(e);
-		}
-		try {
-			// The process starts running immediately after this function is called. Any
-			// error thrown here will be a result of the process failing to start, not
-			// the success or failure of the process itself.
-			let proc = Gio.Subprocess.new(
-				// The program and command options are passed as a list of arguments
-				['/bin/sh', '-c', `echo ${new_wf} > ` + wf_file],
-					// /sys/module/drm/parameters/debug'],
-
-				// The flags control what I/O pipes are opened and how they are directed
-				Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE
-			);
-
-			// Once the process has started, you can end it with `force_exit()`
-			// proc.force_exit();
-		} catch (e) {
-			logError(e);
-		}
 	}
 
     // REMINDER: It's required for extensions to clean up after themselves when
