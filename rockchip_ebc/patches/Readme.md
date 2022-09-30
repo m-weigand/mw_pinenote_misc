@@ -3,6 +3,8 @@
 **WARNING: Due to time constraints these modifications are not well tested! Use with care.**
 See the **Usage** section below for information on how to use the new features.
 
+** see https://github.com/m-weigand/linux ** for the actual patches.
+
 ## Based upon
 
 * Smaeuls repository https://github.com/smaeul/linux.git
@@ -17,11 +19,11 @@ kernel repo and apply some patches.
 * Use the [gen_uboot_image.sh](../../initrd/gen_uboot_image.sh) script to generate an initrd image
 using dracut.
 
-## New features (as of 2022.August.08)
+## New features (as of 2022.August.30)
 
 * 'Fixed' panel_reflection=0 screen presentation
 * Black and white mode
-  * The BW mode now uses dithering for better presentation performance
+  * Optional dithering mode for better presentation performance
 * Area splitting (improves xournalpp performance)
 * Allow odd start/end coordinates for clips (i.e., 1x1 pixel blits)
 * Auto refresh based on partially refreshed screen area
@@ -33,7 +35,7 @@ using dracut.
   greatly reduces (but not removes) artifacting and ghosting
 * A few (subjective?) bug-fixes
 
-## Applying the patches
+## Applying the patches (does not apply anymore)
 
 Check if the patch can be correctly applied:
 
