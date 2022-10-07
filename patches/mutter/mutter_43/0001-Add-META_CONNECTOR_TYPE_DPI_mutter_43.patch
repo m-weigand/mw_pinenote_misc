@@ -1,0 +1,66 @@
+From f717fa38912f62b71a9f9578998d2e4dc023b86a Mon Sep 17 00:00:00 2001
+From: hrdl <7808331-hrdl@users.noreply.gitlab.com>, modified by
+Maximilian Weigand <mweigand@mweigand.net>
+Date: Fri, 27 May 2022 19:16:23 +0200
+Subject: [PATCH] Add META_CONNECTOR_TYPE_DPI
+
+---
+ src/backends/meta-monitor.c              | 1 +
+ src/backends/meta-output.c               | 1 +
+ src/backends/meta-output.h               | 1 +
+ src/backends/native/meta-kms-connector.c | 1 +
+ src/backends/x11/meta-output-xrandr.c    | 2 ++
+ 5 files changed, 7 insertions(+)
+
+diff --git a/src/backends/meta-monitor.c b/src/backends/meta-monitor.c
+index 46cb05a66..1a0abd70e 100644
+--- a/src/backends/meta-monitor.c
++++ b/src/backends/meta-monitor.c
+@@ -394,6 +394,7 @@ meta_monitor_is_laptop_panel (MetaMonitor *monitor)
+     case META_CONNECTOR_TYPE_eDP:
+     case META_CONNECTOR_TYPE_LVDS:
+     case META_CONNECTOR_TYPE_DSI:
++    case META_CONNECTOR_TYPE_DPI:
+       return TRUE;
+     default:
+       return FALSE;
+diff --git a/src/backends/meta-output.c b/src/backends/meta-output.c
+index ed4807507..8d481be3c 100644
+--- a/src/backends/meta-output.c
++++ b/src/backends/meta-output.c
+@@ -367,6 +367,7 @@ meta_output_is_laptop (MetaOutput *output)
+     case META_CONNECTOR_TYPE_eDP:
+     case META_CONNECTOR_TYPE_LVDS:
+     case META_CONNECTOR_TYPE_DSI:
++    case META_CONNECTOR_TYPE_DPI:
+       return TRUE;
+     default:
+       return FALSE;
+diff --git a/src/backends/native/meta-kms-connector.c b/src/backends/native/meta-kms-connector.c
+index b7550e12e..f62fd2edb 100644
+--- a/src/backends/native/meta-kms-connector.c
++++ b/src/backends/native/meta-kms-connector.c
+@@ -1100,6 +1100,7 @@ make_connector_name (drmModeConnector *drm_connector)
+     "eDP",
+     "Virtual",
+     "DSI",
++    "DPI",
+   };
+
+   if (drm_connector->connector_type < G_N_ELEMENTS (connector_type_names))
+diff --git a/src/backends/x11/meta-output-xrandr.c b/src/backends/x11/meta-output-xrandr.c
+index 7265624f4..ebf0b4e65 100644
+--- a/src/backends/x11/meta-output-xrandr.c
++++ b/src/backends/x11/meta-output-xrandr.c
+@@ -773,6 +773,8 @@ output_info_get_connector_type_from_name (const MetaOutputInfo *output_info)
+     return META_CONNECTOR_TYPE_Composite;
+   if (g_str_has_prefix (name, "DSI"))
+     return META_CONNECTOR_TYPE_DSI;
++  if (g_str_has_prefix (name, "DPI"))
++    return META_CONNECTOR_TYPE_DPI;
+   if (g_str_has_prefix (name, "DIN"))
+     return META_CONNECTOR_TYPE_9PinDIN;
+
+--
+2.36.1
+
