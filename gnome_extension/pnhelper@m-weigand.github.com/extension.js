@@ -21,11 +21,14 @@
 'use strict';
 const St = imports.gi.St;
 // const Gio = imports.gi.Gio;
-const { GLib, Gio } = imports.gi;
+const { GLib, Gio, GObject } = imports.gi;
+const QuickSettings = imports.ui.quickSettings;
+
+// This is the live instance of the Quick Settings menu
+const QuickSettingsMenu = imports.ui.main.panel.statusArea.quickSettings;
 
 const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
-// const rotator = Me.imports.rotator;
 const Main = imports.ui.main;
 const PanelMenu = imports.ui.panelMenu;
 const PopupMenu = imports.ui.popupMenu;
@@ -38,38 +41,7 @@ const Orientation = Object.freeze({
     'right-up': 3
 });
 
-// imports.searchPath.unshift('.');
 const BusUtils = Me.imports.busUtils;
-
-// function call_dbus_method(method, params = null) {
-// 	log("pre get sync");
-//     let connection = Gio.bus_get_sync(Gio.BusType.SESSION, null);
-// 	log("post get sync");
-//     return connection.call_sync(
-//         'org.gnome.Mutter.DisplayConfig',
-//         '/org/gnome/Mutter/DisplayConfig',
-//         'org.gnome.Mutter.DisplayConfig',
-//         method,
-//         params,
-//         null,
-//         Gio.DBusCallFlags.NONE,
-//         -1,
-//         null);
-// }
-
-// function get_state() {
-//     let result = call_dbus_method('GetCurrentState');
-//     return new BusUtils.DisplayConfigState(result);
-// }
-
-// function rotate_to(transform) {
-//     let state = this.get_state();
-//     let builtin_monitor = state.builtin_monitor;
-//     let logical_monitor = state.get_logical_monitor_for(builtin_monitor.connector);
-//     logical_monitor.transform = transform;
-//     let variant = state.pack_to_apply( BusUtils.Methods['temporary'] );
-//     call_dbus_method('ApplyMonitorsConfig', variant);
-// }
 
 
 class Extension {
@@ -107,40 +79,115 @@ class Extension {
 	}
 
     _add_warm_indicator_to_main_gnome_menu() {
-        let filepath = "/sys/class/backlight/backlight_warm/brightness";
-        let max_filepath = "/sys/class/backlight/backlight_warm/max_brightness";
+		// use the new quicksettings from GNOME 0.43
+		// https://gjs.guide/extensions/topics/quick-settings.html#example-usage
 
-        this._m_warm_backlight_slider = new PopupMenu.PopupBaseMenuItem({ activate: true });
-        this._warm_backlight_slider = new Slider.Slider(this._get_content(filepath) / this._get_content(max_filepath));
-        this._sliderChangedId = this._warm_backlight_slider.connect('notify::value',
-            this._warm_backlight_slider_changed.bind(this));
-        this._warm_backlight_slider.accessible_name = _("Warm Backlight Brightness");
+		const FeatureSlider = GObject.registerClass(
+		class FeatureSlider extends QuickSettings.QuickSlider {
+			_init() {
+				super._init({
+					icon_name: 'weather-clear-night-symbolic',
+				});
 
-        const icon = new St.Icon({
-            icon_name: 'weather-clear-night-symbolic',
-            style_class: 'popup-menu-icon',
-        });
-        this._m_warm_backlight_slider.add(icon);
-        this._m_warm_backlight_slider.add_child(this._warm_backlight_slider);
-        this._m_warm_backlight_slider.connect('button-press-event', (actor, event) => {
-            return this._warm_backlight_slider.startDragging(event);
-        });
-        this._m_warm_backlight_slider.connect('key-press-event', (actor, event) => {
-            return this._warm_backlight_slider.emit('key-press-event', event);
-        });
-        this._m_warm_backlight_slider.connect('scroll-event', (actor, event) => {
-            return this._warm_backlight_slider.emit('scroll-event', event);
-        });
+				this.filepath = "/sys/class/backlight/backlight_warm/brightness";
+				this.max_filepath = "/sys/class/backlight/backlight_warm/max_brightness";
 
-        Main.panel.statusArea.aggregateMenu.menu.addMenuItem(this._m_warm_backlight_slider, 2);
-    }
+				// set slider to current value
+				this.max_value = this._get_content(this.max_filepath);
+				let cur_value = this._get_content(this.filepath);
 
-    _warm_backlight_slider_changed() {
-        let filepath = "/sys/class/backlight/backlight_warm/brightness";
-        let max_filepath = "/sys/class/backlight/backlight_warm/max_brightness";
-        let relative = this._warm_backlight_slider.value;
-        const brightness = Math.round(relative * this._get_content(max_filepath));
-        this._write_to_sysfs_file(filepath, brightness);
+				let cur_slider = cur_value / this.max_value;
+				log(`Current value: ${cur_value} - ${cur_slider}`);
+				this.slider.unblock_signal_handler(this._sliderChangedId);
+
+				this.slider.block_signal_handler(this._sliderChangedId);
+				this.slider.value = cur_slider;
+
+				this._sliderChangedId = this.slider.connect('notify::value',
+					this._onSliderChanged.bind(this));
+
+				this._onSettingsChanged();
+
+				// Set an accessible name for the slider
+				this.slider.accessible_name = "Warm Backlight Brightness";
+			}
+
+			_onSettingsChanged() {
+				// Prevent the slider from emitting a change signal while being updated
+				this.slider.block_signal_handler(this._sliderChangedId);
+				// this.slider.value = this._settings.get_uint('feature-range') / 100.0;
+				this.slider.unblock_signal_handler(this._sliderChangedId);
+			}
+
+			_write_to_sysfs_file(filename, value){
+				try {
+					// The process starts running immediately after this
+					// function is called. Any error thrown here will be a
+					// result of the process failing to start, not the success
+					// or failure of the process itself.
+					let proc = Gio.Subprocess.new(
+						// The program and command options are passed as a list
+						// of arguments
+						['/bin/sh', '-c', `echo ${value} > ` + filename],
+							// /sys/module/drm/parameters/debug'],
+
+						// The flags control what I/O pipes are opened and how they are directed
+						Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE
+					);
+
+					// Once the process has started, you can end it with
+					// `force_exit()`
+					// proc.force_exit();
+				} catch (e) {
+					logError(e);
+				}
+			}
+
+			_get_content(sysfs_file){
+				// read current value
+				const file = Gio.File.new_for_path(sysfs_file);
+				const [, contents, etag] = file.load_contents(null);
+				const ByteArray = imports.byteArray;
+				const contentsString = ByteArray.toString(contents);
+
+				return contentsString.replace(/[\n\r]/g, '');
+			}
+
+			_onSliderChanged() {
+				// Assuming our GSettings holds values between 0..100, adjust
+				// for the slider taking values between 0..1
+				const percent = Math.floor(this.slider.value * 100);
+
+				let relative = this.slider.value;
+				const brightness = Math.round(relative * this._get_content(this.max_filepath));
+				// log(`brightness: ${brightness}`);
+				this._write_to_sysfs_file(this.filepath, brightness);
+			}
+		});
+
+		const FeatureIndicator = GObject.registerClass(
+		class FeatureIndicator extends QuickSettings.SystemIndicator {
+			_init() {
+				super._init();
+
+				// Create the slider and associate it with the indicator, being sure to
+				// destroy it along with the indicator
+				this.quickSettingsItems.push(new FeatureSlider());
+
+				this.connect('destroy', () => {
+					this.quickSettingsItems.forEach(item => item.destroy());
+				});
+
+				// Add the indicator to the panel
+				QuickSettingsMenu._indicators.add_child(this);
+
+				// Add the slider to the menu, this time passing `2` as the second
+				// argument to ensure the slider spans both columns of the menu
+				QuickSettingsMenu._addItems(this.quickSettingsItems, 2);
+			}
+		});
+		// initialize a new slider object
+		this._indicator2 = new FeatureIndicator();
     }
 
 	_change_bw_mode(new_mode){

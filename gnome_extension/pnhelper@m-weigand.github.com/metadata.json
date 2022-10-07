@@ -3,6 +3,6 @@
     "name": "Pinenote Helper",
     "description": "Provides easy access to some pinenote-related functionality",
     "version": 1,
-    "shell-version": [ "3.38.5", "42", "42.1" ],
-    "url": "https://github.com/m-weigand/mw_pinenote_misc"
+    "shell-version": ["43" ],
+    "url": "https://github.com/m-weigand/mw_pinenote_misc/gnome_extension"
 }
