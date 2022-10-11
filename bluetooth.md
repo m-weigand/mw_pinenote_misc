@@ -22,43 +22,41 @@
 * Modules hidp and uhid compiled as modules
 * Connect via bluetoothctl::
 
-	root@pinenote:~# bluetoothctl
-	Agent registered
-	[CHG] Controller 90:C3:68:B9:CA:54 Pairable: yes
-	[bluetooth]# power on
-	Changing power on succeeded
-	[bluetooth]# discoverable on
-	Changing discoverable on succeeded
-	[CHG] Controller 90:C3:68:B9:CA:54 Discoverable: yes
-	[bluetooth]# pairable on
-	Changing pairable on succeeded
-	[bluetooth]# agent KeyboardOnly
-	Agent is already registered
-	[bluetooth]# default-agent
-	Default agent request successful
-	[bluetooth]# scan on
-	Discovery started
-	[CHG] Controller 90:C3:68:B9:CA:54 Discovering: yes
-	[...]
-	[NEW] Device F4:73:35:6B:38:D0 Keyboard K480
-	[...]
-	[bluetooth]# pair F4:73:47:6B:38:D0
-	Attempting to pair with F4:73:47:6B:38:D0
-	[agent] Passkey: 183308
-	[agent] Passkey: 183308
-	[agent] Passkey: 183308
-	[agent] Passkey: 183308
-	[agent] Passkey: 183308
-	[agent] Passkey: 183308
-	[agent] Passkey: 183308
-	[CHG] Device F4:73:47:6B:38:D0 Paired: yes
-	Pairing successful
-	[Keyboard K480]# trust F4:73:47:6B:38:D0
-	Changing F4:73:47:6B:38:D0 trust succeeded
-	[bluetooth]# connect F4:73:47:6B:38:D0
-	Attempting to connect to F4:73:47:6B:38:D0
-	[CHG] Device F4:73:47:6B:38:D0 Connected: yes
-	Connection successful
-	[Keyboard K480]#
-
-*
+		root@pinenote:~# bluetoothctl
+		Agent registered
+		[CHG] Controller 90:C3:68:B9:CA:54 Pairable: yes
+		[bluetooth]# power on
+		Changing power on succeeded
+		[bluetooth]# discoverable on
+		Changing discoverable on succeeded
+		[CHG] Controller 90:C3:68:B9:CA:54 Discoverable: yes
+		[bluetooth]# pairable on
+		Changing pairable on succeeded
+		[bluetooth]# agent KeyboardOnly
+		Agent is already registered
+		[bluetooth]# default-agent
+		Default agent request successful
+		[bluetooth]# scan on
+		Discovery started
+		[CHG] Controller 90:C3:68:B9:CA:54 Discovering: yes
+		[...]
+		[NEW] Device F4:73:35:6B:38:D0 Keyboard K480
+		[...]
+		[bluetooth]# pair F4:73:47:6B:38:D0
+		Attempting to pair with F4:73:47:6B:38:D0
+		[agent] Passkey: 183308
+		[agent] Passkey: 183308
+		[agent] Passkey: 183308
+		[agent] Passkey: 183308
+		[agent] Passkey: 183308
+		[agent] Passkey: 183308
+		[agent] Passkey: 183308
+		[CHG] Device F4:73:47:6B:38:D0 Paired: yes
+		Pairing successful
+		[Keyboard K480]# trust F4:73:47:6B:38:D0
+		Changing F4:73:47:6B:38:D0 trust succeeded
+		[bluetooth]# connect F4:73:47:6B:38:D0
+		Attempting to connect to F4:73:47:6B:38:D0
+		[CHG] Device F4:73:47:6B:38:D0 Connected: yes
+		Connection successful
+		[Keyboard K480]#
