@@ -43,6 +43,29 @@ const Orientation = Object.freeze({
 
 const BusUtils = Me.imports.busUtils;
 
+const ebc = Me.imports.ebc;
+
+
+var TriggerRefreshButton = GObject.registerClass(
+	class TriggerRefreshButton extends PanelMenu.Button {
+    _init() {
+        super._init();
+        this.set_track_hover(true);
+        this.set_reactive(true);
+
+        this.add_child(new St.Icon({
+			icon_name: 'view-refresh-symbolic',
+			style_class: 'system-status-icon'
+		}));
+        this.connect('button-release-event', this._trigger.bind(this));
+    }
+
+    _trigger(widget, event) {
+		log("TRIGGER")
+		ebc.ebc_trigger_global_refresh();
+    }
+});
+
 
 class Extension {
     constructor() {
@@ -400,8 +423,20 @@ class Extension {
 		);
 	}
 
+	add_refresh_button(){
+		this._trigger_refresh_button = new TriggerRefreshButton();
+		Main.panel.addToStatusArea(
+			"PN Trigger Global Refresh",
+			this._trigger_refresh_button,
+			-1,
+			'center'
+		);
+	}
+
     enable() {
         log(`enabling ${Me.metadata.name}`);
+
+		this.add_refresh_button();
 
 		// ////////////////////////////////////////////////////////////////////
 		// Button 1
@@ -420,7 +455,12 @@ class Extension {
 
         // `Main.panel` is the actual panel you see at the top of the screen,
         // not a class constructor.
-        Main.panel.addToStatusArea(indicatorName, this._indicator);
+        Main.panel.addToStatusArea(
+			indicatorName,
+			this._indicator,
+			-2,
+			'center'
+		);
 
 		let item;
 		item = new PopupMenu.PopupMenuItem(_('Rotate'));

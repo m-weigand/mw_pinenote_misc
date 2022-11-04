@@ -21,6 +21,11 @@ care. Suggestions are welcome!**
 * enable in gnome extension manager
 * restart gnome
 
+## Testing under wayland
+
+	./install.sh && dbus-run-session -- gnome-shell --nested --wayland
+
+
 ## TODO
 
 * Make sure the disable() function properly destroys all objects
