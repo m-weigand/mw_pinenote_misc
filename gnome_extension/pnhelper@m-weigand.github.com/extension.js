@@ -78,9 +78,11 @@ class Extension {
         this._indicator2 = null;
 
 		// the button widgets
-		this.bw_but_grayscale = new PopupMenu.PopupMenuItem(_('Grayscale Mode (v2)'));
+		this.bw_but_grayscale = new PopupMenu.PopupMenuItem(_('Grayscale Mode'));
 		this.bw_but_bw_dither = new PopupMenu.PopupMenuItem(_('BW+Dither Mode'));
 		this.bw_but_bw = new PopupMenu.PopupMenuItem(_('BW Mode'));
+		this.bw_but_du4 = new PopupMenu.PopupMenuItem(_('DU4 Mode'));
+
         this.m_bw_slider = new PopupMenu.PopupBaseMenuItem({ activate: true });
 		this.mitem_bw_dither_invert = new PopupMenu.PopupMenuItem(_('BW Invert On'));
 
@@ -113,6 +115,8 @@ class Extension {
 			new_label += 'BW+D:';
 		} else if (bw_mode == 2) {
 			new_label += 'BW:';
+		} else if (bw_mode == 3) {
+			new_label += 'DU4:';
 		}
 
 		new_label += waveform.toString();
@@ -264,9 +268,10 @@ class Extension {
 		ebc.PnProxy.SetBwModeSync(new_mode);
 
 		if (new_mode == 0){
-			this.bw_but_grayscale.visible = false;
+			this.bw_but_grayscale.visible = true;
 			this.bw_but_bw_dither.visible = true;
 			this.bw_but_bw.visible = true;
+			this.bw_but_du4 = true;
 			this.m_bw_slider.visible = false;
 			this.mitem_bw_dither_invert.visible = false;
 			// use GC16 waveform
@@ -275,8 +280,9 @@ class Extension {
 		} else if (new_mode == 1){
 			// bw+dither
 			this.bw_but_grayscale.visible = true;
-			this.bw_but_bw_dither.visible = false;
+			this.bw_but_bw_dither.visible = true;
 			this.bw_but_bw.visible = true;
+			this.bw_but_du4 = true;
 			this.m_bw_slider.visible = false;
 			this.mitem_bw_dither_invert.visible = true;
 			// use A2 waveform
@@ -286,12 +292,23 @@ class Extension {
 			// bw
 			this.bw_but_grayscale.visible = true;
 			this.bw_but_bw_dither.visible = true;
-			this.bw_but_bw.visible = false;
+			this.bw_but_bw.visible = true;
+			this.bw_but_du4 = true;
 			this.m_bw_slider.visible = true;
 			this.mitem_bw_dither_invert.visible = true;
 			// use A2 waveform
 			// this._set_waveform(1);
 			ebc.PnProxy.SetDefaultWaveformSync(1);
+		} else if (new_mode == 3){
+			// DU4 mode
+			this.bw_but_grayscale.visible = true;
+			this.bw_but_bw_dither.visible = true;
+			this.bw_but_bw.visible = true;
+			this.bw_but_du4 = true;
+			this.m_bw_slider.visible = true;
+			this.mitem_bw_dither_invert.visible = true;
+			// use DU4 waveform
+			ebc.PnProxy.SetDefaultWaveformSync(3);
 		}
 
 		// trigger a global refresh
@@ -322,6 +339,12 @@ class Extension {
 			this._change_bw_mode(2);
 		});
 		this._indicator.menu.addMenuItem(this.bw_but_bw);
+
+		// 4
+		this.bw_but_du4.connect('activate', () => {
+			this._change_bw_mode(3);
+		});
+		this._indicator.menu.addMenuItem(this.bw_but_du4);
 	}
 
 	_add_bw_slider() {
