@@ -1,12 +1,22 @@
-diff --git a/src/core/control/tools/StrokeHandler.cpp b/src/core/control/tools/StrokeHandler.cpp
-index 2c8897b3..92292b03 100644
---- a/src/core/control/tools/StrokeHandler.cpp
-+++ b/src/core/control/tools/StrokeHandler.cpp
-@@ -360,6 +360,7 @@ void StrokeHandler::onButtonDoublePressEvent(const PositionInputData& pos) {
- }
+From 94ae6e1c343e7756031407f9442d18c2a26a78d3 Mon Sep 17 00:00:00 2001
+From: Petr Hodina <phodina@protonmail.com>
+Date: Fri, 9 Jun 2023 12:59:30 +0200
+Subject: [PATCH] Disable antialias for the dots for better experience on
+ Pinenote (Eink tablet)
 
- void StrokeHandler::paintDot(cairo_t* cr, const double x, const double y, const double width) const {
-+    cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
-     cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
-     cairo_set_line_width(cr, width);
-     cairo_move_to(cr, x, y);
+
+diff --git a/src/control/tools/StrokeHandler.cpp b/src/control/tools/StrokeHandler.cpp
+index ca81de9..0d891a2 100644
+--- a/src/control/tools/StrokeHandler.cpp
++++ b/src/control/tools/StrokeHandler.cpp
+@@ -403,6 +403,7 @@ void StrokeHandler::resetShapeRecognizer() {
+ }
+ 
+ void StrokeHandler::paintDot(const double x, const double y, const double width) const {
++    cairo_set_antialias(crMask, CAIRO_ANTIALIAS_NONE);
+     cairo_set_line_cap(crMask, CAIRO_LINE_CAP_ROUND);
+     cairo_set_operator(crMask, CAIRO_OPERATOR_OVER);
+     cairo_set_source_rgba(crMask, 1, 1, 1, 1);
+-- 
+2.39.1
+
